@@ -1,3 +1,7 @@
+# Ignore databases and genome files
+/data/database/*
+/data/genomes/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
