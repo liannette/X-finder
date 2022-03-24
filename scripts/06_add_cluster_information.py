@@ -30,7 +30,9 @@ def get_df_of_hitIDs_and_core_genome(conn):
 
 
 def get_set_of_transporter_pfams():
-    # Get all pfams associated with transporter activity
+    """ 
+    Get all pfams associated with transporter activity 
+    """
     file_path = os.path.join(get_base_dir(), "data", "transporter pfams", "all_transporter_pfams.txt")
     if os.path.exists(file_path):
         with open(file_path, "r") as infile:
