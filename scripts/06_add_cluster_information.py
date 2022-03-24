@@ -36,7 +36,7 @@ def get_set_of_transporter_pfams():
         with open(infile_path, "r") as infile:
             transporter_pfams = set(infile.read().splitlines())
     else:
-        print("{}: File {} not found. Creating a list of PFAMs that are associated with transporter function and writing if to the path.".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), infile_path))
+        print("{}: File {} not found. Finding all PFAMs that are associated with transporter function and writing them to a file.".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), infile_path))
         from get_transporter_pfams import get_transporter_pfams_from_pfam2go
         transporter_pfams = get_transporter_pfams_from_pfam2go()
         with open(outfile_path, "w") as outfile:
