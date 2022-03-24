@@ -25,7 +25,7 @@ def get_transporter_pfams_from_pfam2go():
         # find lines that associate a pfam to a GO_ID
         if line.startswith("Pfam:"):
             line = line.split()
-            pfam = int(re.search(r"PF(\d{5})\D", line[0]).group(1)) #int(line[0][7:])
+            pfam = int(re.search(r"PF(\d{5})", line[0]).group(1)) #int(line[0][7:])
             GO_ID = line[-1]
             #print(pfam, GO_ID)
 
