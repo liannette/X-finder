@@ -5,6 +5,7 @@ from datetime import datetime
 from general_functions import connect_to_db, get_base_dir
 import pandas as pd
 import math
+import os
 
 
 def get_df_of_hitIDs_and_core_genome(conn):
