@@ -31,15 +31,15 @@ def get_df_of_hitIDs_and_core_genome(conn):
 
 def get_set_of_transporter_pfams():
     # Get all pfams associated with transporter activity
-    infile_path = os.path.join(get_base_dir(), "data", "transporter pfams", "all_transporter_pfams.txt")
-    if os.path.exists(infile_path):
-        with open(infile_path, "r") as infile:
+    file_path = os.path.join(get_base_dir(), "data", "transporter pfams", "all_transporter_pfams.txt")
+    if os.path.exists(file_path):
+        with open(file_path, "r") as infile:
             transporter_pfams = set(infile.read().splitlines())
     else:
         print("{}: File {} not found. Finding all PFAMs that are associated with transporter function and writing them to a file.".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), infile_path))
         from get_transporter_pfams import get_transporter_pfams_from_pfam2go
         transporter_pfams = get_transporter_pfams_from_pfam2go()
-        with open(outfile_path, "w") as outfile:
+        with open(file_path, "w") as outfile:
             for pfam in transporter_pfams:
                 print(pfam, file=outfile)
     return transporter_pfams
