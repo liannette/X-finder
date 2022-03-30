@@ -16,21 +16,21 @@ def create_database_tables(database):
     c = conn.cursor()
     c.execute('''
                 CREATE TABLE "hosts" (
-                	"host"	TEXT NOT NULL UNIQUE,
-                	"description"	TEXT NOT NULL,
+                	"hostID"	INTEGER,
+                	"description"	TEXT UNIQUE,
                 	"hosttype"	TEXT NOT NULL,
                 	"number_of_contigs"	INTEGER,
                 	"L50"	INTEGER,
-                	PRIMARY KEY("host")
+                	PRIMARY KEY("hostID")
                 )
                 '''
     )
     c.execute('''
                 CREATE TABLE "contigs" (
-	                "host"	TEXT NOT NULL,
 	                "contig"	TEXT NOT NULL UNIQUE,
+	                "hostID"	TEXT NOT NULL,
 	                "sequence_length"	INTEGER NOT NULL,
-	                FOREIGN KEY("host") REFERENCES "hosts"("host"),
+	                FOREIGN KEY("hostID") REFERENCES "hosts"("hostID"),
 	                PRIMARY KEY("contig")
                 )
                 '''
@@ -51,7 +51,7 @@ def create_database_tables(database):
     )
     c.execute('''
                 CREATE TABLE "pfams" (
-                	"ID"	INTEGER NOT NULL UNIQUE,
+                	"pfamID"	INTEGER NOT NULL UNIQUE,
                 	"pfamnumber"	TEXT NOT NULL,
                     "locus_tag"    TEXT NOT NULL,
                 	"pfamstart"	INTEGER NOT NULL,
@@ -60,18 +60,18 @@ def create_database_tables(database):
 	                "contig"	TEXT NOT NULL,
 	                FOREIGN KEY("locus_tag") REFERENCES "cds"("locus_tag"),
                     FOREIGN KEY("contig") REFERENCES "contigs"("contig"),
-	                PRIMARY KEY("ID" AUTOINCREMENT)
+	                PRIMARY KEY("pfamID" AUTOINCREMENT)
                 )
                 '''
     )
     c.execute('''
                 CREATE TABLE "cluster" (
-                	"ID"	INTEGER NOT NULL UNIQUE,
+                	"clusterID"	INTEGER NOT NULL UNIQUE,
 	                "core_genome_indicator"	REAL,
 	                "transporter_indicator"	REAL,
 	                "number_core_pfams"	INTEGER,
                     "manual_exception" INTEGER,
-                	PRIMARY KEY("ID")
+                	PRIMARY KEY("clusterID")
                 )
                 '''
     )
@@ -86,22 +86,22 @@ def create_database_tables(database):
                 	"ref_pfamID_start"	INTEGER NOT NULL,
                 	"ref_pfamID_end"	INTEGER NOT NULL,
                 	PRIMARY KEY("hitID" AUTOINCREMENT),
-                	FOREIGN KEY("query_pfamID_start") REFERENCES "pfams"("ID"),
-                	FOREIGN KEY("ref_pfamID_start") REFERENCES "pfams"("ID"),
+                	FOREIGN KEY("query_pfamID_start") REFERENCES "pfams"("pfamID"),
+                	FOREIGN KEY("ref_pfamID_start") REFERENCES "pfams"("pfamID"),
                 	FOREIGN KEY("ref_contig") REFERENCES "contigs"("contig"),
                 	FOREIGN KEY("query_contig") REFERENCES "contigs"("contig"),
-                	FOREIGN KEY("ref_pfamID_end") REFERENCES "pfams"("ID"),
-                	FOREIGN KEY("query_pfamID_end") REFERENCES "pfams"("ID")
+                	FOREIGN KEY("ref_pfamID_end") REFERENCES "pfams"("pfamID"),
+                	FOREIGN KEY("query_pfamID_end") REFERENCES "pfams"("pfamID")
                 )
                 '''
     )
     c.execute('''
                 CREATE TABLE "host_comparisons" (
-                	"query_host"	TEXT NOT NULL,
-                	"ref_host"	TEXT NOT NULL,
-                	FOREIGN KEY("query_host") REFERENCES "hosts"("host"),
-                	FOREIGN KEY("ref_host") REFERENCES "hosts"("host"),
-                	PRIMARY KEY("query_host","ref_host")
+                	"query_hostID"	INTEGER NOT NULL,
+                	"ref_hostID"	INTEGER NOT NULL,
+                	FOREIGN KEY("query_hostID") REFERENCES "hosts"("hostID"),
+                	FOREIGN KEY("ref_hostID") REFERENCES "hosts"("hostID"),
+                	PRIMARY KEY("query_hostID","ref_hostID")
                 )
                 '''
     )

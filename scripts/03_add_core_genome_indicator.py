@@ -25,7 +25,7 @@ def get_all_ref_cds(conn):
                             SELECT locus_tag, translation
                             FROM cds
                             INNER JOIN contigs ON cds.contig = contigs.contig
-                            INNER JOIN hosts ON contigs.host = hosts.host
+                            INNER JOIN hosts ON contigs.hostID = hosts.hostID
                             WHERE hosttype = "reference" 
                         ''') \
                 .fetchall()  
@@ -35,6 +35,8 @@ def get_all_ref_cds(conn):
 
 def insert_core_genome_in_db(database, core_genome_locus_tags, not_core_genome_locus_tags):
     """
+    CDS that are core genome are marked with "-"
+    CDS that are not core genome are marked with "+"
     """
     core_genome_locus_tags = [[x] for x in core_genome_locus_tags]
     not_core_genome_locus_tags = [[x] for x in not_core_genome_locus_tags]

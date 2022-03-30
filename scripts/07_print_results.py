@@ -36,7 +36,7 @@ def get_all_cluster(conn, core_genome_cutoff, transporter_cutoff):
     '''
     Get a list of all clusterIDs
     '''
-    sql = '''   SELECT ID, core_genome_indicator, transporter_indicator, number_core_pfams
+    sql = '''   SELECT clusterID, core_genome_indicator, transporter_indicator, number_core_pfams
                 FROM cluster 
                 WHERE core_genome_indicator <= ?
                     AND transporter_indicator <= ?
@@ -67,11 +67,11 @@ def get_locustags_pfamnums(conn, first_pfamID, last_pfamID):
     """
     """
     sql = """ 
-            SELECT hosts.description, hosts.host, pfams.contig, pfams.locus_tag, pfams.pfamnumber, pfams.pfamstart, pfams.pfamend
+            SELECT hosts.description, hosts.hostID, pfams.contig, pfams.locus_tag, pfams.pfamnumber, pfams.pfamstart, pfams.pfamend
             FROM pfams
 		        INNER JOIN contigs ON pfams.contig = contigs.contig
-		        INNER JOIN hosts ON hosts.host = contigs.host
-            WHERE pfams.ID BETWEEN ? AND ?
+		        INNER JOIN hosts ON hosts.hostID = contigs.hostID
+            WHERE pfams.pfamID BETWEEN ? AND ?
           """
     c = conn.cursor()
     rows = c.execute(sql, (first_pfamID, last_pfamID)).fetchall()

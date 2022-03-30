@@ -15,7 +15,7 @@ def get_df_of_hitIDs_and_core_genome(conn):
             WITH distict_cds AS (
             		SELECT DISTINCT hits.hitID, pfams.locus_tag, core_genome
             		  FROM hits
-                INNER JOIN pfams ON pfams.ID BETWEEN ref_pfamID_start AND ref_pfamID_end
+                INNER JOIN pfams ON pfams.pfamID BETWEEN ref_pfamID_start AND ref_pfamID_end
             	INNER JOIN cds   ON pfams.locus_tag = cds.locus_tag
             	)
 			  SELECT distict_cds.hitID, 
@@ -38,7 +38,7 @@ def get_set_of_transporter_pfams():
         with open(file_path, "r") as infile:
             transporter_pfams = set(infile.read().splitlines())
     else:
-        print("{}: File {} not found. Finding all PFAMs that are associated with transporter function and writing them to a file.".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), infile_path))
+        print("{}: File {} not found. Finding all PFAMs that are associated with transporter function and writing them to a file.".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), file_path))
         from get_transporter_pfams import get_transporter_pfams_from_pfam2go
         transporter_pfams = get_transporter_pfams_from_pfam2go()
         with open(file_path, "w") as outfile:
@@ -104,7 +104,7 @@ def get_num_core_pfams_and_transporter_indicator(conn, hitIDs_in_cluster, transp
                     WITH distict_pfam AS (
                     SELECT DISTINCT hitID, pfamnumber
                                 		  FROM hits
-                                    INNER JOIN pfams ON pfams.ID BETWEEN {0}_pfamID_start AND {0}_pfamID_end
+                                    INNER JOIN pfams ON pfams.pfamID BETWEEN {0}_pfamID_start AND {0}_pfamID_end
                     				WHERE hitID IN ({1})
                     				)
                     SELECT pfamnumber, COUNT(*) AS hit_count
@@ -132,7 +132,7 @@ def insert_cluster_to_db(conn, clusterID, core_genome_indicator, transporter_ind
     with conn:
         c = conn.cursor()
         sql =   """ 
-                INSERT OR REPLACE INTO cluster (ID, core_genome_indicator, transporter_indicator, number_core_pfams) 
+                INSERT OR REPLACE INTO cluster (clusterID, core_genome_indicator, transporter_indicator, number_core_pfams) 
                 VALUES (?, ?, ?, ?) 
                 """
         c.execute(sql, (clusterID, core_genome_indicator, transporter_indicator, num_core_pfams))

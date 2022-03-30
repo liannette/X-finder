@@ -88,7 +88,7 @@ class Hit:
 
 # Functions ====================================================================
 
-def host_comparison_exists(conn, query_host, ref_host, times):
+def host_comparison_exists(conn, query_hostID, ref_hostID, times):
     '''
     Checks if hits have already been calculated for the two hits
     '''
@@ -96,27 +96,27 @@ def host_comparison_exists(conn, query_host, ref_host, times):
     c = conn.cursor()
     sql = ''' SELECT COUNT(*) 
                 FROM host_comparisons 
-               WHERE query_host=? 
-                 AND ref_host=?
+               WHERE query_hostID=? 
+                 AND ref_hostID=?
           '''
-    result = c.execute(sql,(query_host, ref_host)).fetchall()[0][0]
+    result = c.execute(sql,(query_hostID, ref_hostID)).fetchall()[0][0]
     c.close()
     times[2] += (datetime.now() - start_time).total_seconds()
     return result == 1, times
 
-def read_contigs_from_db(conn, host, times):
+def read_contigs_from_db(conn, hostID, times):
     '''
-    read the contigs belonging to a specific host from table contigs
+    read the contigs belonging to a specific hostID from table contigs
     :param conn:
-    :param host:
+    :param hostID:
     :return: contigs
     '''
     start_time = datetime.now()
     sql = ''' SELECT contig 
                 FROM contigs 
-                WHERE host=?'''
+                WHERE hostID=?'''
     c = conn.cursor()
-    rows = c.execute(sql,(host,)).fetchall()
+    rows = c.execute(sql,(hostID,)).fetchall()
     contigs = [row[0] for row in rows]
     c.close()
     times[3] += (datetime.now() - start_time).total_seconds()
@@ -130,7 +130,7 @@ def read_gpfamsequence_from_db(conn, contig, times):
     :return: a python list of table rows
     '''
     start_time = datetime.now()
-    sql = ''' SELECT ID, pfamnumber, locus_tag, pfamstart, pfamend 
+    sql = ''' SELECT pfamID, pfamnumber, locus_tag, pfamstart, pfamend 
                 FROM pfams 
                WHERE contig=? '''
     c = conn.cursor()
@@ -378,20 +378,20 @@ def insert_hits_to_db(conn, query_contig, ref_contig, query_gpfamsequence, refer
     return times
 
 
-def insert_host_comparisons_to_DB(conn, query_host, ref_host):
+def insert_host_comparisons_to_DB(conn, query_hostID, ref_hostID):
     '''
     Writes the two hosts that have been compared to the database
     '''
     with conn:
         c = conn.cursor()
         # Write the two hosts of the comparison to the table "host_comparisons"
-        sql = ''' INSERT INTO host_comparisons (query_host, ref_host) 
+        sql = ''' INSERT INTO host_comparisons (query_hostID, ref_hostID) 
                                  VALUES (?, ?) '''
-        c.execute(sql,(query_host, ref_host))
+        c.execute(sql,(query_hostID, ref_hostID))
         c.close()
 
 
-def find_hits(query_host, ref_hosts, database, seed_size, gap_threshold, size_threshold, DNA_length_threshold, thread_no):
+def find_hits(query_hostID, ref_hostIDs, database, seed_size, gap_threshold, size_threshold, DNA_length_threshold, thread_no):
     """
     """
 
@@ -403,7 +403,7 @@ def find_hits(query_host, ref_hosts, database, seed_size, gap_threshold, size_th
 
     times = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
-    query_contigs, times = read_contigs_from_db(conn, query_host, times)
+    query_contigs, times = read_contigs_from_db(conn, query_hostID, times)
     query_gpfamsequence_contigs = list()
     query_pfamnumbers_contigs = list()
     for query_contig in query_contigs: 
@@ -411,13 +411,13 @@ def find_hits(query_host, ref_hosts, database, seed_size, gap_threshold, size_th
         query_gpfamsequence_contigs.append(query_gpfamsequence)
         query_pfamnumbers_contigs.append([item[1] for item in query_gpfamsequence])
 
-    for ref_host in ref_hosts:
+    for ref_hostID in ref_hostIDs:
 
-        comparison_exists, times = host_comparison_exists(conn, query_host, ref_host, times)
+        comparison_exists, times = host_comparison_exists(conn, query_hostID, ref_hostID, times)
         if comparison_exists is False:
-            #print("{}: Comparison between query '{}' and ref '{}' does not exist in the database yet.".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), query_host, ref_host))
+            #print("{}: Comparison between query '{}' and ref '{}' does not exist in the database yet.".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), query_hostID, ref_hostID))
 
-            ref_contigs, times = read_contigs_from_db(conn, ref_host, times)
+            ref_contigs, times = read_contigs_from_db(conn, ref_hostID, times)
             
             for query_idx, ref_idx in itertools.product(range(len(query_contigs)), range(len(ref_contigs))):
 
@@ -445,7 +445,7 @@ def find_hits(query_host, ref_hosts, database, seed_size, gap_threshold, size_th
                 # Write hits/matches to database
                 times = insert_hits_to_db(conn2, query_contig, ref_contig, query_gpfamsequence, reference_gpfamsequence, hits, times)
             
-            insert_host_comparisons_to_DB(conn2, query_host, ref_host)
+            insert_host_comparisons_to_DB(conn2, query_hostID, ref_hostID)
         
     conn.close()
     conn2.close()
@@ -466,13 +466,13 @@ def count_comparisons(database):
     return count
 
 
-def get_hosts(database, hosttype, max_L50):
+def get_hostIDs(database, hosttype, max_L50):
     '''
     '''
     conn = connect_to_db(database)
     with conn:
         c = conn.cursor()
-        sql = ''' SELECT host
+        sql = ''' SELECT hostID
                   FROM hosts 
                   WHERE hosttype = ? AND L50 <= ?'''
         rows = c.execute(sql, (hosttype, max_L50)).fetchall()
@@ -502,9 +502,9 @@ def create_temporary_databases(database, threads):
         )
         c.execute('''
                 CREATE TABLE "host_comparisons" (
-                	"query_host"	TEXT NOT NULL,
-                	"ref_host"	    TEXT NOT NULL,
-                	PRIMARY KEY("query_host","ref_host")
+                	"query_hostID"	INTEGER NOT NULL,
+                	"ref_hostID"	    INTEGER NOT NULL,
+                	PRIMARY KEY("query_hostID","ref_hostID")
                 )
                 '''
         )            
@@ -522,14 +522,14 @@ def combine_databases(database, threads, BASE_DIR):
             c.execute('ATTACH DATABASE ? AS temp_db', (temp_database,))  
             c.execute('''
                         INSERT OR IGNORE INTO hits (query_contig, query_pfamID_start, query_pfamID_end, ref_contig, ref_pfamID_start, ref_pfamID_end)
-                        SELECT query_contig, query_pfamID_start, query_pfamID_end, ref_contig, ref_pfamID_start, ref_pfamID_end
-                        FROM temp_db.hits
+                            SELECT query_contig, query_pfamID_start, query_pfamID_end, ref_contig, ref_pfamID_start, ref_pfamID_end
+                            FROM temp_db.hits
                         '''
                         )  
             c.execute('''
-                        INSERT OR IGNORE INTO host_comparisons (query_host, ref_host)
-                        SELECT query_host, ref_host
-                        FROM temp_db.host_comparisons
+                        INSERT OR IGNORE INTO host_comparisons (query_hostID, ref_hostID)
+                            SELECT query_hostID, ref_hostID
+                            FROM temp_db.host_comparisons
                         '''
                         )  
             c.execute('COMMIT')
@@ -551,13 +551,13 @@ def main(seed_size, gap_threshold, size_threshold, DNA_length_threshold, threads
     comparison_count_start = count_comparisons(database)
 
     # Get query and reference hosts
-    query_hosts = get_hosts(database, "query", max_L50=3)
-    ref_hosts = get_hosts(database, "reference", max_L50=3)
+    query_hostIDs = get_hostIDs(database, "query", max_L50=3)
+    ref_hostIDs = get_hostIDs(database, "reference", max_L50=3)
     print("{}: Collected {} query hosts and {} reference hosts, which amounts to {} host comparisions.".format(
         datetime.now().strftime("%d/%m/%Y %H:%M:%S"), 
-        len(query_hosts), 
-        len(ref_hosts), 
-        len(query_hosts)*len(ref_hosts)
+        len(query_hostIDs), 
+        len(ref_hostIDs), 
+        len(query_hostIDs)*len(ref_hostIDs)
         ))
 
     # Create temporary databases to enable concurrent database writes. They will be merged later.
@@ -565,17 +565,17 @@ def main(seed_size, gap_threshold, size_threshold, DNA_length_threshold, threads
     print("{}: Created temporary databases to allow concurrent writes. Starting to find and write hits now.".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
 
     # Split the reference hosts into n=threads chunks and enumerate
-    ref_hosts_split = list(enumerate(np.array_split(ref_hosts, threads)))
+    ref_hostIDs_split = list(enumerate(np.array_split(ref_hostIDs, threads)))
 
     matching_times = list()
     now = datetime.now()
     start = now
-    for i in range(len(query_hosts)):
+    for i in range(len(query_hostIDs)):
         # Using multithreading to find hits
-        times = Parallel(n_jobs=threads)(delayed(find_hits)(query_hosts[i], ref_hosts, database, seed_size, gap_threshold, size_threshold, DNA_length_threshold, thread_no) for thread_no, ref_hosts in ref_hosts_split)
+        times = Parallel(n_jobs=threads)(delayed(find_hits)(query_hostIDs[i], ref_hostIDs, database, seed_size, gap_threshold, size_threshold, DNA_length_threshold, thread_no) for thread_no, ref_hostIDs in ref_hostIDs_split)
         total_duration = datetime.now() - start
         print("{}: {}/{} batches done. Batch duration: {}, Total Duration: {}".format(
-            datetime.now().strftime("%d/%m/%Y %H:%M:%S"), i+1, len(query_hosts), datetime.now() - now, total_duration))
+            datetime.now().strftime("%d/%m/%Y %H:%M:%S"), i+1, len(query_hostIDs), datetime.now() - now, total_duration))
         matching_times += times
         now = datetime.now()
     
