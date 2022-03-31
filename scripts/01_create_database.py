@@ -17,10 +17,11 @@ def create_database_tables(database):
     c.execute('''
                 CREATE TABLE "hosts" (
                 	"hostID"	INTEGER,
-                	"description"	TEXT UNIQUE,
+                	"organism"	TEXT UNIQUE,
                 	"hosttype"	TEXT NOT NULL,
                 	"number_of_contigs"	INTEGER,
                 	"L50"	INTEGER,
+                    "file" TEXT NOT NULL,
                 	PRIMARY KEY("hostID")
                 )
                 '''
@@ -28,8 +29,9 @@ def create_database_tables(database):
     c.execute('''
                 CREATE TABLE "contigs" (
 	                "contig"	TEXT NOT NULL UNIQUE,
-	                "hostID"	TEXT NOT NULL,
+	                "description"	TEXT NOT NULL,
 	                "sequence_length"	INTEGER NOT NULL,
+                    "hostID"	TEXT NOT NULL,
 	                FOREIGN KEY("hostID") REFERENCES "hosts"("hostID"),
 	                PRIMARY KEY("contig")
                 )

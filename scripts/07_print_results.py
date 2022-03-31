@@ -67,7 +67,7 @@ def get_locustags_pfamnums(conn, first_pfamID, last_pfamID):
     """
     """
     sql = """ 
-            SELECT hosts.description, hosts.hostID, pfams.contig, pfams.locus_tag, pfams.pfamnumber, pfams.pfamstart, pfams.pfamend
+            SELECT hosts.organism, contigs.contig, contigs.description, pfams.locus_tag, pfams.pfamnumber, pfams.pfamstart, pfams.pfamend
             FROM pfams
 		        INNER JOIN contigs ON pfams.contig = contigs.contig
 		        INNER JOIN hosts ON hosts.hostID = contigs.hostID
@@ -75,12 +75,12 @@ def get_locustags_pfamnums(conn, first_pfamID, last_pfamID):
           """
     c = conn.cursor()
     rows = c.execute(sql, (first_pfamID, last_pfamID)).fetchall()
-    description, host, contig, cds_locustags, pfamnums, pfamstarts, pfamends = zip(*rows)
+    organism, seq_id, seq_description, cds_locustags, pfamnums, pfamstarts, pfamends = zip(*rows)
     sublist_start = min(pfamstarts)
     sublist_end = max(pfamends)
     #cds_locustags = sorted(set(cds_locustags)) # to get rid of duplicates, the original order is preserved because locus_tags are sequentially numbered
     first_last_cds_locustag = (cds_locustags[0], cds_locustags[-1])
-    return description[0], host[0], contig[0], sublist_start, sublist_end, first_last_cds_locustag, pfamnums
+    return organism[0], seq_id[0], seq_description[0], sublist_start, sublist_end, first_last_cds_locustag, pfamnums
 
 
 def get_cds_products(conn, first_last_cds_locustag, contig, underline):
@@ -287,13 +287,13 @@ def main(database, core_genome_cutoff, transporter_cutoff, outfile_prefix):
             # Get all relevant information of the sublists
             sublists_detailed = list()
             for hosttype, first_pfamID, last_pfamID in sublists: 
-                description, host, contig, sublist_start, sublist_end, first_last_cds_locustag, pfamnums = get_locustags_pfamnums(conn, first_pfamID, last_pfamID)
-                cds_products, core_genome_labels, us_cds_labelled, ds_cds_labelled = get_cds_products(conn, first_last_cds_locustag, contig, underline)
+                organism, seq_id, seq_description, sublist_start, sublist_end, first_last_cds_locustag, pfamnums = get_locustags_pfamnums(conn, first_pfamID, last_pfamID)
+                cds_products, core_genome_labels, us_cds_labelled, ds_cds_labelled = get_cds_products(conn, first_last_cds_locustag, seq_id, underline)
                 sublists_detailed.append([
                     hosttype, 
-                    description, 
-                    host, 
-                    contig, 
+                    organism, 
+                    seq_id, 
+                    seq_description, 
                     sublist_start, 
                     sublist_end, 
                     cds_products,
@@ -305,6 +305,7 @@ def main(database, core_genome_cutoff, transporter_cutoff, outfile_prefix):
             # Only the cds information
             cds_products = [sublist[6] for sublist in sublists_detailed]
             core_genome_labels = [sublist[7] for sublist in sublists_detailed]
+
             # Core cds in cluster
             core_cds_in_cluster = set(cds_products[0]).intersection(*cds_products)
             
@@ -313,10 +314,9 @@ def main(database, core_genome_cutoff, transporter_cutoff, outfile_prefix):
             all_cds_in_cluster = sorted(cds_in_cluster_dict.keys(), key=lambda x: x.lower())
             all_cds_in_cluster = mark_core_cluster_cds(all_cds_in_cluster, core_cds_in_cluster)
             all_cds_in_cluster = mark_core_genome_cds(all_cds_in_cluster, label_dict=cds_in_cluster_dict)
-
             summary_results.append([clusterID, core_genome_indicator, transporter_indicator, number_core_pfams, len(query_sublists), len(ref_sublists), all_cds_in_cluster])
 
-            for hosttype, description, host, contig, sublist_start, sublist_end, cds_products, core_genome_labels, pfamnums, us_cds_labelled, ds_cds_labelled in sublists_detailed:
+            for hosttype, organism, seq_id, seq_description, sublist_start, sublist_end, cds_products, core_genome_labels, pfamnums, us_cds_labelled, ds_cds_labelled in sublists_detailed:
                 cds_products_set = sorted(set(cds_products), key=lambda x: x.lower())
                 cds_products_set = mark_core_cluster_cds(cds_products_set, core_cds_in_cluster)
                 cds_products_set =  mark_core_genome_cds(cds_products_set, label_list=core_genome_labels, method=underline)
@@ -324,7 +324,7 @@ def main(database, core_genome_cutoff, transporter_cutoff, outfile_prefix):
                 cds_products = mark_core_genome_cds(cds_products, label_list=core_genome_labels, method=underline)
                 detailed_results.append(
                     [clusterID, len(sublists_detailed), core_genome_indicator, transporter_indicator, number_core_pfams,
-                    hosttype, description, host, contig, sublist_start, sublist_end, 
+                    hosttype, organism, seq_id, seq_description, sublist_start, sublist_end, 
                     cds_products_set,  
                     cds_products, 
                     ", ".join(pfamnums), 
@@ -341,13 +341,13 @@ def main(database, core_genome_cutoff, transporter_cutoff, outfile_prefix):
     # Write detailed results to a tsv file
     detailed_results = pd.DataFrame(detailed_results, columns = [
         'clusterID', 'number of sublists', 'core genome indicator', 'transporter indicator', 'number of core pfams', 
-        'hosttype', 'host description', 'host ID', 'contig ID', 'start pos on contig', 'end pos on contig', 
+        'hosttype', 'organism', 'sequence ID', 'sequence description', 'start position on contig', 'end position on contig', 
         'CDS products set', 'CDS products sequence', 'PFAM number sequence', 'upstream CDS products', 'downstream CDS products'
         ])
     detailed_results.to_excel(writer, sheet_name='Sheet1', index=False)
     
     worksheet = writer.sheets['Sheet1']
-    worksheet.set_column(7, 8, 20)
+    worksheet.set_column(8, 8, 40)
     worksheet.set_column(11, 13, 60)
     worksheet.set_column(14, 16, 60)
     worksheet.autofilter(0, 0, len(detailed_results), len(detailed_results.columns) - 1)

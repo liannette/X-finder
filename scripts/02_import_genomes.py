@@ -19,6 +19,20 @@ from datetime import datetime
 
 # Functions ====================================================================
 
+def insert_host_into_DB(conn, organism, hosttype, genbank_file):
+
+    genbank_file = genbank_file.split("genomes")[1]
+    with conn:
+        c = conn.cursor()
+        # Insert host
+        sql = ''' INSERT INTO hosts (organism, hosttype, file) VALUES (?,?,?) '''
+        c.execute(sql, (organism, hosttype, genbank_file))
+        # Get hostID
+        sql = ''' SELECT hostID FROM hosts WHERE organism=? '''
+        hostID = c.execute(sql, (organism,)).fetchall()[0][0]
+    c.close()
+    return hostID
+
 
 def extract_information_from_gbk_record(rec):
     '''
@@ -27,9 +41,11 @@ def extract_information_from_gbk_record(rec):
     if two pfams overlap with eachother, and the overlap area is bigger then half of either of them, only the one with smallest pfumnumber will be kept.
     '''
     # Some PFAM_domain features don't have PFAM ID (this is actually a  bug from antismash (they use a dictionary of pfam name and pfam ID which need to be updated mannually), remember to check if this happen too often, if yes ask Kai to fix it).so we used try expect. .
-    description = rec.description # =DEFINITION
-    accession = rec.id # =ACCESSION
-    sequence_length = len(rec.seq)
+    
+
+    seq_description = rec.description # =DEFINITION
+    seq_id = rec.id # = accession.version
+    seq_length = len(rec.seq)
 
     cds_list = []
     gpfamsequence = []
@@ -45,7 +61,7 @@ def extract_information_from_gbk_record(rec):
                     translation = feature.qualifiers["translation"][0]
                     cdsstart = feature.location.nofuzzy_start
                     cdsend = feature.location.nofuzzy_end
-                    cds_list.append( (accession, locus_tag, cds_product, translation, cdsstart, cdsend) )
+                    cds_list.append( (seq_id, locus_tag, cds_product, translation, cdsstart, cdsend) )
                 except:
                     continue
             elif feature.type == "PFAM_domain":
@@ -72,43 +88,30 @@ def extract_information_from_gbk_record(rec):
                 pfamstart = feature.location.nofuzzy_start
                 pfamend = feature.location.nofuzzy_end
                 strand = astrand
-                pfam = (pfam_locus_tag, pfamnumber, pfamstart, pfamend, strand, accession)
+                pfam = (pfam_locus_tag, pfamnumber, pfamstart, pfamend, strand, seq_id)
                 gpfamsequence.append(pfam)
 
     #print ("in total ", len(cds_list), " CDS found")
     #print ("in total ", len(gpfamsequence), " pfams found")
 
-    return description, accession, sequence_length, cds_list, gpfamsequence
+    return seq_description, seq_id, seq_length, cds_list, gpfamsequence
 
 
-def insert_record_to_DB(conn, description, accession, sequence_length, cds_list, gpfamsequence):
+def insert_record_to_DB(conn, hostID, seq_description, seq_id, seq_length, cds_list, gpfamsequence):
     '''
     '''
-    # Determine hosttype
-    if description.startswith("Streptomyces"):
-        hosttype = "reference"
-    else:
-        hosttype = "query" 
-
     with conn:
         c = conn.cursor()
-        # Insert host, this happens repeatedly for each contig, therefore insert or ignore
-        sql = ''' INSERT OR IGNORE INTO hosts (description, hosttype) VALUES (?,?) '''
-        c.execute(sql, (description, hosttype))
-        # Get hostID
-        sql = ''' SELECT hostID from hosts WHERE description=? '''
-        hostID = c.execute(sql, (description,)).fetchall()[0][0]
         # Insert contig
-        sql = ''' INSERT INTO contigs (contig, hostID, sequence_length) VALUES (?,?,?) '''
-        c.execute(sql, (accession, hostID, sequence_length))
+        sql = ''' INSERT INTO contigs (contig, description, sequence_length, hostID) VALUES (?,?,?,?) '''
+        c.execute(sql, (seq_id, seq_description, seq_length, hostID))
         # Insert all cds
         sql = ''' INSERT INTO cds (contig, locus_tag, product, translation, cds_start, cds_end) VALUES (?,?,?,?,?,?) '''
         c.executemany(sql, cds_list)
-        # Insert the genome sequence PFAMS
+        # Insert the genome PFAMsequence
         sql = ''' INSERT INTO pfams (locus_tag, pfamnumber, pfamstart, pfamend, strand, contig) VALUES(?,?,?,?,?,?) '''
         c.executemany(sql, gpfamsequence)
         c.close()
-    return hostID
 
 
 def add_number_of_contigs_and_L50_to_host_table(conn, hostID):
@@ -156,22 +159,34 @@ def print_not_imported_genomes_to_file(not_imported_genomes):
 def main(test_flag, database):
 
     # Get all genome files
-    genomes_dir = os.path.join(get_base_dir(), "data", "genomes", "Actinobacteria_internal", "*.gbk")
-    genbank_files = glob.glob(genomes_dir)
+    query_genomes = glob.glob(os.path.join(get_base_dir(), "data", "genomes", "Actinobacteria_internal", "*.gbk"))
+    ref_genomes = glob.glob(os.path.join(get_base_dir(), "data", "genomes", "Streptomyces_internal", "*.gbk"))
     if test_flag:
-        genbank_files = genbank_files[:10]
+        query_genomes = query_genomes[:2]
+        ref_genomes = ref_genomes[:2]
+    genbank_files = [(gbk_file, "query") for gbk_file in query_genomes] + [(gbk_file, "reference") for gbk_file in ref_genomes]
     print("{}: Importing {} genomes into the database '{}'.".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), len(genbank_files), database))
 
- 
     # Import the genomes to the database
     conn = connect_to_db(database)
     not_imported_genomes = list()
     for i in range(len(genbank_files)):
-        genbank_file = genbank_files[i]
+        genbank_file = genbank_files[i][0]
+        hosttype = genbank_files[i][1]
         try:
+            seq_records = SeqIO.parse(genbank_file, "genbank")
+
+            # Information about the organism
+            organisms = [rec.annotations["organism"] for rec in seq_records]
+            assert len(set(organisms)) == 1   # We expect all seqences to be from the same organism
+            hostID = insert_host_into_DB(conn, organisms[0], hosttype, genbank_file)
+
+            # Information about each sequence
             for rec in SeqIO.parse(genbank_file, "genbank"):
-                description, accession, sequence_length, cds_list, gpfamsequence = extract_information_from_gbk_record(rec)
-                hostID = insert_record_to_DB(conn, description, accession, sequence_length, cds_list, gpfamsequence)
+                seq_description, seq_id, seq_length, cds_list, gpfamsequence = extract_information_from_gbk_record(rec)
+                insert_record_to_DB(conn, hostID, seq_description, seq_id, seq_length, cds_list, gpfamsequence)
+
+            # Add more information about organism
             add_number_of_contigs_and_L50_to_host_table(conn, hostID)
         except:
             traceback.print_exc()
