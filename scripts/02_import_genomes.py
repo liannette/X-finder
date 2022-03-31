@@ -20,248 +20,169 @@ from datetime import datetime
 # Functions ====================================================================
 
 
-def get_hosttype(host, ref_genus):
-    """
-    Checks if the host starts with the ref_genus
-    """
-    if host.startswith(ref_genus):
+def extract_information_from_gbk_record(rec):
+    '''
+    host description and contig accession are extracted; 
+    pfams [(pfamnumber, start, end, locus_tag)] are extracted from the sequence and make up a gpfamsequence; 
+    if two pfams overlap with eachother, and the overlap area is bigger then half of either of them, only the one with smallest pfumnumber will be kept.
+    '''
+    # Some PFAM_domain features don't have PFAM ID (this is actually a  bug from antismash (they use a dictionary of pfam name and pfam ID which need to be updated mannually), remember to check if this happen too often, if yes ask Kai to fix it).so we used try expect. .
+    description = rec.description # =DEFINITION
+    accession = rec.id # =ACCESSION
+    sequence_length = len(rec.seq)
+
+    cds_list = []
+    gpfamsequence = []
+    pfamstart = 0
+    pfamend = 0
+    pfamnumber = 10000     #just a number bigger than any real pfamnumber.
+    if rec.features:
+        for feature in rec.features:
+            if feature.type == "CDS":
+                try:
+                    locus_tag = feature.qualifiers["locus_tag"][0]
+                    cds_product = feature.qualifiers["product"][0]
+                    translation = feature.qualifiers["translation"][0]
+                    cdsstart = feature.location.nofuzzy_start
+                    cdsend = feature.location.nofuzzy_end
+                    cds_list.append( (accession, locus_tag, cds_product, translation, cdsstart, cdsend) )
+                except:
+                    continue
+            elif feature.type == "PFAM_domain":
+                try:
+                    apfamid = feature.qualifiers["db_xref"][0]
+                    apfamnumber = int(re.search(r"PF(\d{5})\D", apfamid).group(1))
+                    apfam_locus_tag = feature.qualifiers["locus_tag"][0]
+                    apfamsize = feature.location.nofuzzy_end - feature.location.nofuzzy_start
+                    astrand = feature.strand
+                    overlap = pfamend - feature.location.nofuzzy_start  #nofuzzy_start left most (minimum) value, regardless of strand
+                except:
+                    continue #pfamnumber can not be found
+                if overlap > apfamsize/2 or overlap > (pfamend - pfamstart)/2:
+                    if apfamnumber >= pfamnumber:
+                        #print ("overlap found")
+                        continue
+
+                    #remove the previous pfam
+                    gpfamsequence.pop()
+                    #print ("overlapped pfam found and removed")
+
+                pfamnumber = apfamnumber
+                pfam_locus_tag = apfam_locus_tag
+                pfamstart = feature.location.nofuzzy_start
+                pfamend = feature.location.nofuzzy_end
+                strand = astrand
+                pfam = (pfam_locus_tag, pfamnumber, pfamstart, pfamend, strand, accession)
+                gpfamsequence.append(pfam)
+
+    #print ("in total ", len(cds_list), " CDS found")
+    #print ("in total ", len(gpfamsequence), " pfams found")
+
+    return description, accession, sequence_length, cds_list, gpfamsequence
+
+
+def insert_record_to_DB(conn, description, accession, sequence_length, cds_list, gpfamsequence):
+    '''
+    '''
+    # Determine hosttype
+    if description.startswith("Streptomyces"):
         hosttype = "reference"
     else:
         hosttype = "query" 
-    return hosttype
 
-
-def insert_host_to_DB(conn, host, description):
-    '''
-    insert a new host into the hosts table
-    :param conn:
-    :param host:
-    :param description:
-    '''
-    c = conn.cursor()
-    sql =   ''' 
-            INSERT OR IGNORE INTO hosts (host, description, hosttype) 
-                           VALUES (?,?,?) 
-            '''
-    c.execute(sql, (host, description, get_hosttype(description, "Streptomyces")))
-    c.close()
-
-
-def insert_contig_to_DB(conn, host, accession, sequence_length):
-    '''
-    insert a new contig into the contigs table
-    '''
-    c = conn.cursor()
-    sql =   ''' 
-            INSERT OR IGNORE INTO contigs (contig, host, sequence_length) 
-                           VALUES (?,?,?) 
-            '''
-    c.execute(sql, (accession, host, sequence_length))
-    c.close()
-
-
-def insert_cds_to_DB(conn, cds):
-    '''
-    insert the cds locus_tag, product and translation into the table cds
-    :param conn:
-    :param cds_products:
-    :return:    
-    '''
-    c = conn.cursor()
-    sql = ''' INSERT INTO cds (contig, locus_tag, product, translation, cds_start, cds_end)
-              VALUES (?,?,?,?,?,?) '''
-
-    c.executemany(sql, cds)
-    c.close()
-
-
-def insert_gpfamsequence_to_DB(conn, gpfamsequence):
-    '''
-    insert a new gpfam into the pfam table
-    gpfams from a genomes make up a gpfamsequence
-    :param conn:
-    :param gpfamsequence:
-    :return:
-    '''
-    c = conn.cursor()
-    sql = ''' INSERT INTO pfams (locus_tag, pfamnumber, pfamstart, pfamend, strand, contig)
-              VALUES(?,?,?,?,?,?) '''
-    c.executemany(sql, gpfamsequence)
-    c.close()
-
-
-def extract_from_gbfile_to_DB(genbank_file, host, conn):
-    '''
-    host(genome sequenceID, etc) and contigs are extracted and inserted to DB; 
-    pfams [(pfamnumber, start, end, locus_tag)] are extracted from the sequence and make up a gpfamsequence and is then inserted to DB; 
-    if two pfams overlap with eachother, and the overlap area is bigger then half of either of them, only the one with smallest pfumnumber will be kept.
-    '''
-    for rec in SeqIO.parse(genbank_file, "genbank"):
-        # Some PFAM_domain features don't have PFAM ID (this is actually a  bug from antismash (they use a dictionary of pfam name and pfam ID which need to be updated mannually), remember to check if this happen too often, if yes ask Kai to fix it).so we used try expect. .
-        description = rec.description
-        contig_accession = rec.id
-        insert_host_to_DB(conn, host, description)
-        insert_contig_to_DB(conn, host, contig_accession, len(rec.seq))
-
-        cds_list = []
-        gpfamsequence = []
-        pfamstart = 0
-        pfamend = 0
-        pfamnumber = 10000     #just a number bigger than any real pfamnumber.
-        if rec.features:
-            for feature in rec.features:
-                if feature.type == "CDS":
-                    try:
-                        locus_tag = feature.qualifiers["locus_tag"][0]
-                        cds_product = feature.qualifiers["product"][0]
-                        translation = feature.qualifiers["translation"][0]
-                        cdsstart = feature.location.nofuzzy_start
-                        cdsend = feature.location.nofuzzy_end
-                        cds_list.append( (contig_accession, locus_tag, cds_product, translation, cdsstart, cdsend) )
-                    except:
-                        continue
-                elif feature.type == "PFAM_domain":
-                    try:
-                        apfamid = feature.qualifiers["db_xref"][0]
-                        apfamnumber = int(re.search(r"PF(\d{5})\D", apfamid).group(1))
-                        apfam_locus_tag = feature.qualifiers["locus_tag"][0]
-                        apfamsize = feature.location.nofuzzy_end - feature.location.nofuzzy_start
-                        astrand = feature.strand
-                        overlap = pfamend - feature.location.nofuzzy_start  #nofuzzy_start left most (minimum) value, regardless of strand
-                    except:
-                        continue #pfamnumber can not be found
-                    if overlap > apfamsize/2 or overlap > (pfamend - pfamstart)/2:
-                        if apfamnumber >= pfamnumber:
-                            #print ("overlap found")
-                            continue
-
-                        #remove the previous pfam
-                        gpfamsequence.pop()
-                        #print ("overlapped pfam found and removed")
-
-                    pfamnumber = apfamnumber
-                    pfam_locus_tag = apfam_locus_tag
-                    pfamstart = feature.location.nofuzzy_start
-                    pfamend = feature.location.nofuzzy_end
-                    strand = astrand
-                    pfam = (pfam_locus_tag, pfamnumber, pfamstart, pfamend, strand, contig_accession)
-                    gpfamsequence.append(pfam)
-
-        #print ("in total ", len(cds_list), " CDS found")
-        #print ("in total ", len(gpfamsequence), " pfams found")
-
-        insert_cds_to_DB(conn, cds_list)
-        insert_gpfamsequence_to_DB(conn, gpfamsequence)
-
-
-def import_gbk_files_to_DB(database, hostIDs_to_exclude, test_flag):
-    '''
-    '''
-    directories = glob.glob("/mnt/o/CFB-S-NewBioactiveCompounds/10_Projects/internal_genomes_pfam/*/")
-    if test_flag:
-        directories = directories[:20]
-    print("{}: Importing {} genomes into the database '{}'.".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), len(directories), database))
-    cnt = 0
-
-    conn = connect_to_db(database)
-    # Extract information from the genbank files into the database
-    missing_files = list()
-    for directory in directories:
-        cnt +=1
-        with conn:
-            hostID = directory.split("/")[-2]
-            genbank_file = directory + hostID + ".gbk"
-            if hostID in hostIDs_to_exclude:
-                missing_files.append(genbank_file)
-                print("{}: Host '{}' has been skipped.".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), hostID))
-            else:
-                try:
-                    extract_from_gbfile_to_DB(genbank_file, hostID, conn)
-                except:
-                    missing_files.append(genbank_file)
-                    print("{}: Following file could not be imported to the database: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), genbank_file))
-                    traceback.print_exc()
-            if cnt % 20 == 0 or cnt == len(directories):
-                print("{}: {}/{} genomes done".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), cnt, len(directories)))
-    conn.close()
-
-    # print list of genomes that were not imported
-    if test_flag:
-        outfile = open(os.path.join(get_base_dir(), "results", "not_imported_genome_files_test.txt"), "w")
-    else: 
-        outfile = open(os.path.join(get_base_dir(), "results", "not_imported_genome_files.txt"), "w")
-    print("Following files were not imported into the database:", file=outfile)
-    for filename in missing_files:
-        print(filename, file=outfile)
-    outfile.close()
-
-
-def read_hosts_from_db(conn):
-    '''
-    reads all hosts from table hosts
-    :param conn:
-    :return: a python list of hosts
-    '''
-    c = conn.cursor()
-    rows = c.execute(''' SELECT host FROM hosts''',).fetchall()
-    c.close()
-    return rows
-
-
-def read_contig_lengths_from_db(conn, host):
-    '''
-    reads the sequence lengths pf all contigs connected to a particular host from table contigs
-    :param conn:
-    :param host:
-    :return: a python list of sequence lengths
-    '''
-    c = conn.cursor()
-    sql = ''' SELECT sequence_length
-                FROM contigs 
-               WHERE host=?
-            ORDER BY sequence_length DESC'''
-    c = conn.cursor()
-    rows = c.execute(sql,(host,)).fetchall()
-    c.close()
-    return rows
-
-
-def insert_L50_and_contig_num_to_DB(conn, host, number_of_contigs, L50):
-    '''
-    '''
-    c = conn.cursor()
-    sql = ''' UPDATE hosts
-                 SET number_of_contigs=?, L50=?
-               WHERE host=?'''
-    c.execute(sql, (number_of_contigs, L50, host))
-    c.close()
-
-
-def add_number_of_contigs_and_L50(database):
-    '''
-    '''
-    conn = connect_to_db(database)
     with conn:
-        # Add number of contigs and L50 to the host table
-        for host_row in read_hosts_from_db(conn):
-            host = host_row[0]
-            contig_rows = read_contig_lengths_from_db(conn, host)
-            total_seq_length = sum([x[0] for x in contig_rows])
-            partial_seq_length = 0
-            for i in range(len(contig_rows)):
-                partial_seq_length += contig_rows[i][0]
-                if partial_seq_length > total_seq_length/2:
-                    insert_L50_and_contig_num_to_DB(conn, host, len(contig_rows), i+1)
-                    break
-    conn.close()
+        c = conn.cursor()
+        # Insert host, this happens repeatedly for each contig, therefore insert or ignore
+        sql = ''' INSERT OR IGNORE INTO hosts (description, hosttype) VALUES (?,?) '''
+        c.execute(sql, (description, hosttype))
+        # Get hostID
+        sql = ''' SELECT hostID from hosts WHERE description=? '''
+        hostID = c.execute(sql, (description,)).fetchall()[0][0]
+        # Insert contig
+        sql = ''' INSERT INTO contigs (contig, hostID, sequence_length) VALUES (?,?,?) '''
+        c.execute(sql, (accession, hostID, sequence_length))
+        # Insert all cds
+        sql = ''' INSERT INTO cds (contig, locus_tag, product, translation, cds_start, cds_end) VALUES (?,?,?,?,?,?) '''
+        c.executemany(sql, cds_list)
+        # Insert the genome sequence PFAMS
+        sql = ''' INSERT INTO pfams (locus_tag, pfamnumber, pfamstart, pfamend, strand, contig) VALUES(?,?,?,?,?,?) '''
+        c.executemany(sql, gpfamsequence)
+        c.close()
+    return hostID
+
+
+def add_number_of_contigs_and_L50_to_host_table(conn, hostID):
+    '''
+    '''
+    with conn:
+        # Get the sequence lengths of all contigs belonging to that host
+        c = conn.cursor()
+        sql = ''' SELECT sequence_length
+                    FROM contigs 
+                   WHERE hostID=?
+                ORDER BY sequence_length DESC '''
+        rows = c.execute(sql,(hostID,)).fetchall()
+        number_of_contigs = len(rows)
+        sequence_lengths = [x[0] for x in rows]
+
+        # Calculate L50 value
+        total_seq_length = sum(sequence_lengths)
+        partial_seq_length = 0
+        for i in range(len(sequence_lengths)):
+            partial_seq_length += sequence_lengths[i]
+            if partial_seq_length > total_seq_length/2:
+                L50 = i+1
+                break
+
+        # Write to database
+        sql = ''' UPDATE hosts
+                     SET number_of_contigs=?, L50=?
+                   WHERE hostID=? '''
+        c.execute(sql, (number_of_contigs, L50, hostID))
+
+
+
+def print_not_imported_genomes_to_file(not_imported_genomes):
+    """ """
+    if test_flag:
+        outfile_path = os.path.join(get_base_dir(), "results", "not_imported_genome_files_test.txt")
+    else: 
+        outfile_path = os.path.join(get_base_dir(), "results", "not_imported_genome_files.txt")
+    with open(outfile_path, "w") as outfile:
+        for filename in not_imported_genomes:
+            print(filename, file=outfile)
 
 
 def main(test_flag, database):
 
-    hostIDs_to_exclude = ["MDNA_WGS_084", "NBC_00189", "NBC_01355"]
+    # Get all genome files
+    genomes_dir = os.path.join(get_base_dir(), "data", "genomes", "Actinobacteria_internal", "*.gbk")
+    genbank_files = glob.glob(genomes_dir)
+    if test_flag:
+        genbank_files = genbank_files[:10]
+    print("{}: Importing {} genomes into the database '{}'.".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), len(genbank_files), database))
 
-    import_gbk_files_to_DB(database, hostIDs_to_exclude, test_flag)
-    add_number_of_contigs_and_L50(database)
+ 
+    # Import the genomes to the database
+    conn = connect_to_db(database)
+    not_imported_genomes = list()
+    for i in range(len(genbank_files)):
+        genbank_file = genbank_files[i]
+        try:
+            for rec in SeqIO.parse(genbank_file, "genbank"):
+                description, accession, sequence_length, cds_list, gpfamsequence = extract_information_from_gbk_record(rec)
+                hostID = insert_record_to_DB(conn, description, accession, sequence_length, cds_list, gpfamsequence)
+            add_number_of_contigs_and_L50_to_host_table(conn, hostID)
+        except:
+            traceback.print_exc()
+            not_imported_genomes.append(genbank_file)
+            print("{}: Following file could not be imported to the database: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), genbank_file))
+        if i+1 % 20 == 0 or i+1 == len(genbank_files):
+            print("{}: {}/{} genomes done".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), i+1, len(genbank_files)))
+    conn.close()
+    
+    # Print the genome files that could not be imported to a file
+    print_not_imported_genomes_to_file(not_imported_genomes)
 
 
 # Main program ================================================================= 
