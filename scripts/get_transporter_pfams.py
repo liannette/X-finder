@@ -1,4 +1,4 @@
-import os.path
+import os
 import urllib.request
 from goatools.base import get_godag
 from goatools.gosubdag.gosubdag import GoSubDag
@@ -45,8 +45,10 @@ def get_transporter_pfams_from_pfam2go():
                 #print('{GO} ancestors: {P}'.format(
                 #    GO=GO_ID,
                 #    P=gosubdag_r1.rcntobj.go2ancestors[GO_ID]))
-    transport_pfams = sorted(transport_pfams)
-    return transport_pfams
+
+    os.remove('go-basic.obo')
+
+    return sorted(transport_pfams)
 
 
 def main():
@@ -54,6 +56,7 @@ def main():
     # Get transporter pfams
     transporter_pfams = get_transporter_pfams_from_pfam2go()
 
+    # Print transporter pfams to file
     filename = "transporter_pfams.txt"
     outfile_path = os.path.join(get_base_dir(), "data", "transporter pfams", "transporter_pfams.txt")
     with open(outfile_path, "w") as outfile:
