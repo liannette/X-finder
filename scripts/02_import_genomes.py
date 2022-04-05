@@ -156,11 +156,15 @@ def print_not_imported_genomes_to_file(not_imported_genomes):
             print(filename, file=outfile)
 
 
-def main(test_flag, database):
+def main(test_flag, database, query_dirs, ref_dirs):
 
     # Get all genome files
-    query_genomes = glob.glob(os.path.join(get_base_dir(), "data", "genomes", "Actinobacteria_internal", "*.gbk"))
-    ref_genomes = glob.glob(os.path.join(get_base_dir(), "data", "genomes", "Streptomyces_internal", "*.gbk"))
+    query_genomes = list()
+    ref_genomes = list()
+    for query_dir in query_dirs:
+        query_genomes += glob.glob(os.path.join(get_base_dir(), "data", "genomes", query_dir, "*.gbk"))
+    for ref_dir in ref_dirs:
+        ref_genomes += glob.glob(os.path.join(get_base_dir(), "data", "genomes", ref_dir, "*.gbk"))
     if test_flag:
         query_genomes = query_genomes[:2]
         ref_genomes = ref_genomes[:2]
@@ -209,11 +213,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-db', action="store", dest="database", type=str, default="database.db", help='Name of the sqlite database (default=database.db')
     parser.add_argument('--test', action="store_true", help="creates a test database with only 20 hosts")
-    
+    parser.add_argument('-q', nargs="+", action="store", dest="query_dirs", default="", help='<Required> directory of the query host genomes, multiple possible')
+    parser.add_argument('-r', nargs="+", action="store", dest="ref_dirs", default="", help='<Required> directory of the ref host genomes, multiple possible')
+
     args = parser.parse_args()
     database = args.database
     test_flag = args.test
+    query_dirs = args.query_dirs
+    ref_dirs = args.ref_dirs
 
     print("{}: Program started. Database: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), database))
-    main(test_flag, database=database)
+    main(test_flag=test_flag, database=database, query_dirs=query_dirs, ref_dirs=ref_dirs)
     print("{}: Program finished".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
