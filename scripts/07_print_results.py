@@ -67,7 +67,7 @@ def get_locustags_pfamnums(conn, first_pfamID, last_pfamID):
     """
     """
     sql = """ 
-            SELECT hosts.organism, contigs.contig, contigs.description, pfams.locus_tag, pfams.pfamnumber, pfams.pfamstart, pfams.pfamend
+            SELECT hosts.organism, hosts.file, contigs.contig, contigs.description, pfams.locus_tag, pfams.pfamnumber, pfams.pfamstart, pfams.pfamend
             FROM pfams
 		        INNER JOIN contigs ON pfams.contig = contigs.contig
 		        INNER JOIN hosts ON hosts.hostID = contigs.hostID
@@ -75,12 +75,12 @@ def get_locustags_pfamnums(conn, first_pfamID, last_pfamID):
           """
     c = conn.cursor()
     rows = c.execute(sql, (first_pfamID, last_pfamID)).fetchall()
-    organism, seq_id, seq_description, cds_locustags, pfamnums, pfamstarts, pfamends = zip(*rows)
+    organism, gbk_filename, seq_id, seq_description, cds_locustags, pfamnums, pfamstarts, pfamends = zip(*rows)
     sublist_start = min(pfamstarts)
     sublist_end = max(pfamends)
     #cds_locustags = sorted(set(cds_locustags)) # to get rid of duplicates, the original order is preserved because locus_tags are sequentially numbered
     first_last_cds_locustag = (cds_locustags[0], cds_locustags[-1])
-    return organism[0], seq_id[0], seq_description[0], sublist_start, sublist_end, first_last_cds_locustag, pfamnums
+    return organism[0], gbk_filename[0], seq_id[0], seq_description[0], sublist_start, sublist_end, first_last_cds_locustag, pfamnums
 
 
 def get_cds_products(conn, first_last_cds_locustag, contig, underline):
@@ -287,10 +287,11 @@ def main(database, core_genome_cutoff, transporter_cutoff, outfile_prefix):
             # Get all relevant information of the sublists
             sublists_detailed = list()
             for hosttype, first_pfamID, last_pfamID in sublists: 
-                organism, seq_id, seq_description, sublist_start, sublist_end, first_last_cds_locustag, pfamnums = get_locustags_pfamnums(conn, first_pfamID, last_pfamID)
+                organism, gbk_filename, seq_id, seq_description, sublist_start, sublist_end, first_last_cds_locustag, pfamnums = get_locustags_pfamnums(conn, first_pfamID, last_pfamID)
                 cds_products, core_genome_labels, us_cds_labelled, ds_cds_labelled = get_cds_products(conn, first_last_cds_locustag, seq_id, underline)
                 sublists_detailed.append([
                     hosttype, 
+                    gbk_filename,
                     organism, 
                     seq_id, 
                     seq_description, 
@@ -303,8 +304,8 @@ def main(database, core_genome_cutoff, transporter_cutoff, outfile_prefix):
                     ds_cds_labelled])
 
             # Only the cds information
-            cds_products = [sublist[6] for sublist in sublists_detailed]
-            core_genome_labels = [sublist[7] for sublist in sublists_detailed]
+            cds_products = [sublist[7] for sublist in sublists_detailed]
+            core_genome_labels = [sublist[8] for sublist in sublists_detailed]
 
             # Core cds in cluster
             core_cds_in_cluster = set(cds_products[0]).intersection(*cds_products)
@@ -316,7 +317,7 @@ def main(database, core_genome_cutoff, transporter_cutoff, outfile_prefix):
             all_cds_in_cluster = mark_core_genome_cds(all_cds_in_cluster, label_dict=cds_in_cluster_dict)
             summary_results.append([clusterID, core_genome_indicator, transporter_indicator, number_core_pfams, len(query_sublists), len(ref_sublists), all_cds_in_cluster])
 
-            for hosttype, organism, seq_id, seq_description, sublist_start, sublist_end, cds_products, core_genome_labels, pfamnums, us_cds_labelled, ds_cds_labelled in sublists_detailed:
+            for hosttype, gbk_filename, organism, seq_id, seq_description, sublist_start, sublist_end, cds_products, core_genome_labels, pfamnums, us_cds_labelled, ds_cds_labelled in sublists_detailed:
                 cds_products_set = sorted(set(cds_products), key=lambda x: x.lower())
                 cds_products_set = mark_core_cluster_cds(cds_products_set, core_cds_in_cluster)
                 cds_products_set =  mark_core_genome_cds(cds_products_set, label_list=core_genome_labels, method=underline)
@@ -341,15 +342,15 @@ def main(database, core_genome_cutoff, transporter_cutoff, outfile_prefix):
     # Write detailed results to a tsv file
     detailed_results = pd.DataFrame(detailed_results, columns = [
         'clusterID', 'number of sublists', 'core genome indicator', 'transporter indicator', 'number of core pfams', 
-        'hosttype', 'organism', 'sequence ID', 'sequence description', 'start position on contig', 'end position on contig', 
+        'hosttype', 'organism', 'file', 'sequence ID', 'sequence description', 'start position on contig', 'end position on contig', 
         'CDS products set', 'CDS products sequence', 'PFAM number sequence', 'upstream CDS products', 'downstream CDS products'
         ])
     detailed_results.to_excel(writer, sheet_name='Sheet1', index=False)
     
     worksheet = writer.sheets['Sheet1']
-    worksheet.set_column(8, 8, 40)
-    worksheet.set_column(11, 13, 60)
-    worksheet.set_column(14, 16, 60)
+    worksheet.set_column(9, 9, 40)
+    worksheet.set_column(12, 14, 60)
+    worksheet.set_column(15, 17, 60)
     worksheet.autofilter(0, 0, len(detailed_results), len(detailed_results.columns) - 1)
     
     # underline core genome cds
@@ -365,7 +366,7 @@ def main(database, core_genome_cutoff, transporter_cutoff, outfile_prefix):
         else:
             cds_cells_format = workbook.add_format({'border':1, 'text_wrap': True, 'border_color': border_color})
 
-        for col_idx in [11, 12, 14, 15]:
+        for col_idx in [12, 13, 15, 16]:
             cds = detailed_results.iloc[row_idx, col_idx]
             if len(cds) >= 3: # write_rich_string() needs at least 3 fragments/formats
                 worksheet.write_rich_string(row_idx+1, col_idx, *cds, cds_cells_format)
