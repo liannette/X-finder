@@ -17,11 +17,11 @@ def create_database_tables(database):
     c.execute('''
                 CREATE TABLE "hosts" (
                 	"hostID"	INTEGER,
-                	"organism"	TEXT UNIQUE,
+                	"organism"	TEXT,
                 	"hosttype"	TEXT NOT NULL,
                 	"number_of_contigs"	INTEGER,
                 	"L50"	INTEGER,
-                    "file" TEXT NOT NULL,
+                    "file" TEXT NOT NULL UNIQUE,
                 	PRIMARY KEY("hostID")
                 )
                 '''

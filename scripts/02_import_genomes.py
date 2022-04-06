@@ -28,8 +28,8 @@ def insert_host_into_DB(conn, organism, hosttype, genbank_file):
         sql = ''' INSERT INTO hosts (organism, hosttype, file) VALUES (?,?,?) '''
         c.execute(sql, (organism, hosttype, genbank_file))
         # Get hostID
-        sql = ''' SELECT hostID FROM hosts WHERE organism=? '''
-        hostID = c.execute(sql, (organism,)).fetchall()[0][0]
+        sql = ''' SELECT hostID FROM hosts WHERE file=? '''
+        hostID = c.execute(sql, (genbank_file,)).fetchall()[0][0]
     c.close()
     return hostID
 
