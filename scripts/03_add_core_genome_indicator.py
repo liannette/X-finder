@@ -24,9 +24,6 @@ def get_all_ref_cds(conn):
     cds_list = c.execute(''' 
                             SELECT locus_tag, translation
                             FROM cds
-                            INNER JOIN contigs ON cds.contig = contigs.contig
-                            INNER JOIN hosts ON contigs.hostID = hosts.hostID
-                            WHERE hosttype = "reference" 
                         ''') \
                 .fetchall()  
     conn.close()  
