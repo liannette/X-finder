@@ -99,7 +99,7 @@ def main(database):
     insert_core_genome_in_db(database, core_genome_locus_tags, not_core_genome_locus_tags)
     print("{}: Inserted core genome information into database".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
 
-    # Delete temporary dictionary 
+    # Delete temporary directory 
     shutil.rmtree(TEMP_DIR)
 
 
