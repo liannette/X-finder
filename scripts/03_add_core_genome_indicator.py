@@ -57,8 +57,6 @@ def insert_core_genome_in_db(database, core_genome_locus_tags, not_core_genome_l
     conn.close()
 
 
-# Main program -----------------------------------------------------------------
-
 def main(database):
 
     dirname = os.path.dirname
@@ -103,7 +101,6 @@ def main(database):
     shutil.rmtree(TEMP_DIR)
 
 
-# Main program =================================================================
 
 if __name__ == "__main__":
 
