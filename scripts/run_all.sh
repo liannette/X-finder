@@ -41,5 +41,5 @@ python -m cProfile -o ../results/profs/06_add_cluster_information.prof \
     2>&1 | tee ../results/logs/06_add_cluster_information.log
 
 python -m cProfile -o ../results/profs/06_print_results.prof \
-    06_print_results.py -db $DATABASE \
+    07_print_results.py -db $DATABASE \
     2>&1 | tee ../results/logs/07_print_results.log
