@@ -325,7 +325,7 @@ def main(database, core_genome_cutoff, transporter_cutoff, outfile_prefix):
                 cds_products = mark_core_genome_cds(cds_products, label_list=core_genome_labels, method=underline)
                 detailed_results.append(
                     [clusterID, len(sublists_detailed), core_genome_indicator, transporter_indicator, number_core_pfams,
-                    hosttype, organism, seq_id, seq_description, sublist_start, sublist_end, 
+                    hosttype, organism, gbk_filename, seq_id, seq_description, sublist_start, sublist_end, 
                     cds_products_set,  
                     cds_products, 
                     ", ".join(pfamnums), 
