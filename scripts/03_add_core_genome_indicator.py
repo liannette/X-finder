@@ -1,4 +1,5 @@
-# Consider to include this script into the import_genomes script, as it takes a crazy amount of time to write the core genome information to the database
+# Consider to include this into the import_genomes script. 
+# It takes a lot of time to write the core genome information to the database by updating each CDS row, maybe its faster to get the core genome information before inserting the cds
 
 
 import sqlite3
