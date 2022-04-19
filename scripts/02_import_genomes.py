@@ -21,14 +21,13 @@ from datetime import datetime
 def insert_host_into_DB(conn, organism, hosttype, genbank_file):
 
     genbank_file = genbank_file.split("genomes")[1]
-    with conn:
-        c = conn.cursor()
-        # Insert host
-        sql = ''' INSERT INTO hosts (organism, hosttype, file) VALUES (?,?,?) '''
-        c.execute(sql, (organism, hosttype, genbank_file))
-        # Get hostID
-        sql = ''' SELECT hostID FROM hosts WHERE file=? '''
-        hostID = c.execute(sql, (genbank_file,)).fetchall()[0][0]
+    c = conn.cursor()
+    # Insert host
+    sql = ''' INSERT INTO hosts (organism, hosttype, file) VALUES (?,?,?) '''
+    c.execute(sql, (organism, hosttype, genbank_file))
+    # Get hostID
+    sql = ''' SELECT hostID FROM hosts WHERE file=? '''
+    hostID = c.execute(sql, (genbank_file,)).fetchall()[0][0]
     c.close()
     return hostID
 
@@ -99,48 +98,47 @@ def extract_information_from_gbk_record(rec):
 def insert_record_to_DB(conn, hostID, seq_description, seq_id, seq_length, cds_list, gpfamsequence):
     '''
     '''
-    with conn:
-        c = conn.cursor()
-        # Insert contig
-        sql = ''' INSERT INTO contigs (contig, description, sequence_length, hostID) VALUES (?,?,?,?) '''
-        c.execute(sql, (seq_id, seq_description, seq_length, hostID))
-        # Insert all cds
-        sql = ''' INSERT INTO cds (contig, locus_tag, product, translation, cds_start, cds_end) VALUES (?,?,?,?,?,?) '''
-        c.executemany(sql, cds_list)
-        # Insert the genome PFAMsequence
-        sql = ''' INSERT INTO pfams (locus_tag, pfamnumber, pfamstart, pfamend, strand, contig) VALUES(?,?,?,?,?,?) '''
-        c.executemany(sql, gpfamsequence)
-        c.close()
+    c = conn.cursor()
+    # Insert contig
+    sql = ''' INSERT INTO contigs (contig, description, sequence_length, hostID) VALUES (?,?,?,?) '''
+    c.execute(sql, (seq_id, seq_description, seq_length, hostID))
+    # Insert all cds
+    sql = ''' INSERT INTO cds (contig, locus_tag, product, translation, cds_start, cds_end) VALUES (?,?,?,?,?,?) '''
+    c.executemany(sql, cds_list)
+    # Insert the genome PFAMsequence
+    sql = ''' INSERT INTO pfams (locus_tag, pfamnumber, pfamstart, pfamend, strand, contig) VALUES(?,?,?,?,?,?) '''
+    c.executemany(sql, gpfamsequence)
+    c.close()
 
 
 def add_number_of_contigs_and_L50_to_host_table(conn, hostID):
     '''
     '''
-    with conn:
-        # Get the sequence lengths of all contigs belonging to that host
-        c = conn.cursor()
-        sql = ''' SELECT sequence_length
-                    FROM contigs 
-                   WHERE hostID=?
-                ORDER BY sequence_length DESC '''
-        rows = c.execute(sql,(hostID,)).fetchall()
-        number_of_contigs = len(rows)
-        sequence_lengths = [x[0] for x in rows]
 
-        # Calculate L50 value
-        total_seq_length = sum(sequence_lengths)
-        partial_seq_length = 0
-        for i in range(len(sequence_lengths)):
-            partial_seq_length += sequence_lengths[i]
-            if partial_seq_length > total_seq_length/2:
-                L50 = i+1
-                break
+    # Get the sequence lengths of all contigs belonging to that host
+    c = conn.cursor()
+    sql = ''' SELECT sequence_length
+                FROM contigs 
+               WHERE hostID=?
+            ORDER BY sequence_length DESC '''
+    rows = c.execute(sql,(hostID,)).fetchall()
+    number_of_contigs = len(rows)
+    sequence_lengths = [x[0] for x in rows]
 
-        # Write to database
-        sql = ''' UPDATE hosts
-                     SET number_of_contigs=?, L50=?
-                   WHERE hostID=? '''
-        c.execute(sql, (number_of_contigs, L50, hostID))
+    # Calculate L50 value
+    total_seq_length = sum(sequence_lengths)
+    partial_seq_length = 0
+    for i in range(len(sequence_lengths)):
+        partial_seq_length += sequence_lengths[i]
+        if partial_seq_length > total_seq_length/2:
+            L50 = i+1
+            break
+
+    # Write to database
+    sql = ''' UPDATE hosts
+                 SET number_of_contigs=?, L50=?
+               WHERE hostID=? '''
+    c.execute(sql, (number_of_contigs, L50, hostID))
 
 
 def print_not_imported_genomes_to_file(not_imported_genomes):
@@ -177,24 +175,27 @@ def main(test_flag, database, query_dirs, ref_dirs):
         hosttype = genbank_files[i][1]
 
         try:
-            seq_records = SeqIO.parse(genbank_file, "genbank")
+            seq_records = list(SeqIO.parse(genbank_file, "genbank"))
             # Information about the organism
             organisms = [rec.annotations["organism"] for rec in seq_records]
             assert len(set(organisms)) == 1   # We expect all seqences to be from the same organism
-            hostID = insert_host_into_DB(conn, organisms[0], hosttype, genbank_file)
-            # Information about each sequence
-            for rec in seq_records:
-                seq_description, seq_id, seq_length, cds_list, gpfamsequence = extract_information_from_gbk_record(rec)
-                insert_record_to_DB(conn, hostID, seq_description, seq_id, seq_length, cds_list, gpfamsequence)
-            # Add more information about organism
-            add_number_of_contigs_and_L50_to_host_table(conn, hostID)
+            with conn:
+                hostID = insert_host_into_DB(conn, organisms[0], hosttype, genbank_file)
+                # Information about each sequence
+                for rec in seq_records:
+                    seq_description, seq_id, seq_length, cds_list, gpfamsequence = extract_information_from_gbk_record(rec)
+                    insert_record_to_DB(conn, hostID, seq_description, seq_id, seq_length, cds_list, gpfamsequence)
+                # Add more information about organism
+                add_number_of_contigs_and_L50_to_host_table(conn, hostID)
 
         except:
             traceback.print_exc()
             not_imported_genomes.append(genbank_file)
             print("{}: Following file could not be imported to the database: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), genbank_file))
-        if i+1 % 20 == 0 or i+1 == len(genbank_files):
-            print("{}: {}/{} genomes done".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), i+1, len(genbank_files)))
+
+        finally:
+            if i+1 % 20 == 0 or i+1 == len(genbank_files):
+                print("{}: {}/{} genomes done".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), i+1, len(genbank_files)))
     conn.close()
     
     # Print the genome files that could not be imported to a file
@@ -207,8 +208,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-db', action="store", dest="database", type=str, default="database.db", help='Name of the sqlite database (default=database.db')
-    parser.add_argument('-q', nargs="+", action="store", dest="query_dirs", default="", help='<Required> directory of the query host genomes, multiple possible')
-    parser.add_argument('-r', nargs="+", action="store", dest="ref_dirs", default="", help='<Required> directory of the ref host genomes, multiple possible')
+    parser.add_argument('--test', action="store_true", help="creates a test database with only 4 hosts")
+    parser.add_argument('-q', nargs="+", action="store", dest="query_dirs", default="", help='Directory name of the query host genomes, multiple directories possible seperated with spaces. Directory must be located in discoverGBC/data/genomes and genomes must be in genbank format')
+    parser.add_argument('-r', nargs="+", action="store", dest="ref_dirs", default="", help='Directory name of the ref host genomes, multiple directories possible seperated with spaces. Directory must be located in discoverGBC/data/genomes and genomes must be in genbank format')
 
     args = parser.parse_args()
     database = args.database
