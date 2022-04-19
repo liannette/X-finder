@@ -17,7 +17,6 @@ import traceback
 from datetime import datetime
 
 
-# Functions ====================================================================
 
 def insert_host_into_DB(conn, organism, hosttype, genbank_file):
 
@@ -144,7 +143,6 @@ def add_number_of_contigs_and_L50_to_host_table(conn, hostID):
         c.execute(sql, (number_of_contigs, L50, hostID))
 
 
-
 def print_not_imported_genomes_to_file(not_imported_genomes):
     """ """
     if test_flag:
@@ -177,21 +175,20 @@ def main(test_flag, database, query_dirs, ref_dirs):
     for i in range(len(genbank_files)):
         genbank_file = genbank_files[i][0]
         hosttype = genbank_files[i][1]
+
         try:
             seq_records = SeqIO.parse(genbank_file, "genbank")
-
             # Information about the organism
             organisms = [rec.annotations["organism"] for rec in seq_records]
             assert len(set(organisms)) == 1   # We expect all seqences to be from the same organism
             hostID = insert_host_into_DB(conn, organisms[0], hosttype, genbank_file)
-
             # Information about each sequence
-            for rec in SeqIO.parse(genbank_file, "genbank"):
+            for rec in seq_records:
                 seq_description, seq_id, seq_length, cds_list, gpfamsequence = extract_information_from_gbk_record(rec)
                 insert_record_to_DB(conn, hostID, seq_description, seq_id, seq_length, cds_list, gpfamsequence)
-
             # Add more information about organism
             add_number_of_contigs_and_L50_to_host_table(conn, hostID)
+
         except:
             traceback.print_exc()
             not_imported_genomes.append(genbank_file)
@@ -204,15 +201,12 @@ def main(test_flag, database, query_dirs, ref_dirs):
     print_not_imported_genomes_to_file(not_imported_genomes)
 
 
-# Main program ================================================================= 
-
 if __name__ == "__main__":
 
     print("Commandline input:", " ".join(sys.argv))
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-db', action="store", dest="database", type=str, default="database.db", help='Name of the sqlite database (default=database.db')
-    parser.add_argument('--test', action="store_true", help="creates a test database with only 20 hosts")
     parser.add_argument('-q', nargs="+", action="store", dest="query_dirs", default="", help='<Required> directory of the query host genomes, multiple possible')
     parser.add_argument('-r', nargs="+", action="store", dest="ref_dirs", default="", help='<Required> directory of the ref host genomes, multiple possible')
 
