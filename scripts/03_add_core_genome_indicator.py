@@ -17,7 +17,7 @@ import shutil
 from datetime import datetime
 
 
-def get_all_ref_cds(conn):
+def get_cds(conn):
     """
     """
     conn = connect_to_db(database)
@@ -25,6 +25,7 @@ def get_all_ref_cds(conn):
     cds_list = c.execute(''' 
                             SELECT locus_tag, translation
                             FROM cds
+                            WHERE core_genome = ""
                         ''') \
                 .fetchall()  
     conn.close()  
@@ -66,7 +67,7 @@ def main(database):
     os.mkdir(TEMP_DIR)  
 
     # Write a fasta file with all reference cds translations
-    cds_list = get_all_ref_cds(database)
+    cds_list = get_cds(database)
     print("{}: Fetched all cds from the database".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
     trans_fasta = os.path.join(TEMP_DIR, "translations.fasta")
     with open(trans_fasta, "w") as outfile:
