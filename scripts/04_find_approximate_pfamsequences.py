@@ -628,7 +628,6 @@ if __name__ == "__main__":
     database = args.database
 
     print("{}: Program started. Threads: {}, database: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), threads, database))
-
     main(seed_size=2, 
          gap_threshold=2, 
          size_threshold=6, 
@@ -636,6 +635,7 @@ if __name__ == "__main__":
          threads=threads, 
          database=database
          )
+    print("{}: Program finished".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
     # to check if the mode is the main program. if it is the if condition is true then the main() will be excuted
     # if it is mode imported by other mode or the main program. __name__= the name of this file.
     #the if condition will be faulse, and the main() will not be excuted
