@@ -10,7 +10,7 @@ from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
 import tempfile
 import argparse
-from general_functions import connect_to_db, timepoint, showtimepoints
+from general_functions import connect_to_db
 import sys
 import pandas as pd
 import shutil
@@ -64,6 +64,8 @@ def main(database):
     dirname = os.path.dirname
     BASE_DIR = dirname(dirname(os.path.abspath(__file__)))
     TEMP_DIR = os.path.join(BASE_DIR, "data", "core genome", "tempdir") # temporary directory. Maybe a dir in memory (tempfile.mkdtemp()) is faster?
+    if os.path.isdir(TEMP_DIR):
+        shutil.rmtree(TEMP_DIR)
     os.mkdir(TEMP_DIR)  
 
     # Write a fasta file with all reference cds translations
