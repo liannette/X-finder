@@ -1,9 +1,7 @@
 #!/bin/bash
 
 
-DATABASE="photorhabdus_xenorhabdus.db"
 REF_GENOMES_DIR="actinobacteria_internal streptomyces_internal"
-QUERY_GENOMES_DIR="photorhabdus xenorhabdus"
 
 
 ### Fist part on local machine, as the query genomes are not on the shared machine. Could be changed, if O drive can be connected to shared machine.
@@ -26,7 +24,7 @@ python -m cProfile -o ../results/profs/02_import_genomes_query.prof \
 
 python -m cProfile -o ../results/profs/03_add_core_genome_indicator.prof \
     03_add_core_genome_indicator.py -db $DATABASE \
-    2>&1 | tee ../results/logs/03_add_core_genome_indicator.log
+    2>&1 | tee ../results/logs/03_add_core_genome_indicator_query.log
 
 python -m cProfile -o ../results/profs/04_find_approximate_pfamsequences.prof \
     04_find_approximate_pfamsequences.py -db $DATABASE -t 8 \
