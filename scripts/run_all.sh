@@ -1,7 +1,9 @@
 #!/bin/bash
 
 
+DATABASE="vibrio.db"
 REF_GENOMES_DIR="actinobacteria_internal streptomyces_internal"
+QUERY_GENOMES_DIR="vibrio"
 
 
 ### Fist part on local machine, as the query genomes are not on the shared machine. Could be changed, if O drive can be connected to shared machine.
