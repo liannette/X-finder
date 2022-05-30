@@ -19,7 +19,9 @@ from datetime import datetime
 
 
 def insert_host_into_DB(conn, organism, hosttype, genbank_file):
-
+    """
+    Inserts a new host into the table hosts, returns the hostID
+    """
     genbank_file = genbank_file.split("genomes")[1]
     c = conn.cursor()
     # Insert host
@@ -33,11 +35,11 @@ def insert_host_into_DB(conn, organism, hosttype, genbank_file):
 
 
 def extract_information_from_gbk_record(rec):
-    '''
+    """
     host description and contig accession are extracted; 
     pfams [(pfamnumber, start, end, locus_tag)] are extracted from the sequence and make up a gpfamsequence; 
     if two pfams overlap with eachother, and the overlap area is bigger then half of either of them, only the one with smallest pfumnumber will be kept.
-    '''
+    """
     # Some PFAM_domain features don't have PFAM ID (this is actually a  bug from antismash (they use a dictionary of pfam name and pfam ID which need to be updated mannually), remember to check if this happen too often, if yes ask Kai to fix it).so we used try expect. .
     
 
@@ -52,6 +54,8 @@ def extract_information_from_gbk_record(rec):
     pfamnumber = 10000     #just a number bigger than any real pfamnumber.
     if rec.features:
         for feature in rec.features:
+
+            # Coding sequence 
             if feature.type == "CDS":
                 try:
                     locus_tag = feature.qualifiers["locus_tag"][0]
@@ -62,6 +66,8 @@ def extract_information_from_gbk_record(rec):
                     cds_list.append( (seq_id, locus_tag, cds_product, translation, cdsstart, cdsend) )
                 except:
                     continue
+
+            # PFAM domain
             elif feature.type == "PFAM_domain":
                 try:
                     apfamid = feature.qualifiers["db_xref"][0]
@@ -70,17 +76,17 @@ def extract_information_from_gbk_record(rec):
                     apfamsize = feature.location.nofuzzy_end - feature.location.nofuzzy_start
                     astrand = feature.strand
                     overlap = pfamend - feature.location.nofuzzy_start  #nofuzzy_start left most (minimum) value, regardless of strand
-                except:
-                    continue #pfamnumber can not be found
+                except: # pfamnumber can not be found
+                    continue
+
+                # Check for overlap
                 if overlap > apfamsize/2 or overlap > (pfamend - pfamstart)/2:
-                    if apfamnumber >= pfamnumber:
-                        #print ("overlap found")
+                    if apfamnumber >= pfamnumber: # dont add the pfam numner
                         continue
-
-                    #remove the previous pfam
-                    gpfamsequence.pop()
-                    #print ("overlapped pfam found and removed")
-
+                    else: # remove the previous pfam
+                        gpfamsequence.pop()
+                        
+                # Add pfam to gpfam sequence
                 pfamnumber = apfamnumber
                 pfam_locus_tag = apfam_locus_tag
                 pfamstart = feature.location.nofuzzy_start
@@ -89,15 +95,14 @@ def extract_information_from_gbk_record(rec):
                 pfam = (pfam_locus_tag, pfamnumber, pfamstart, pfamend, strand, seq_id)
                 gpfamsequence.append(pfam)
 
-    #print ("in total ", len(cds_list), " CDS found")
-    #print ("in total ", len(gpfamsequence), " pfams found")
-
     return seq_description, seq_id, seq_length, cds_list, gpfamsequence
 
 
 def insert_record_to_DB(conn, hostID, seq_description, seq_id, seq_length, cds_list, gpfamsequence):
-    '''
-    '''
+    """
+    Inserts a new contig into the contigs table. 
+    Inserts all cds and the gpfamsequence of the contig into the table and cds and pfams.
+    """
     c = conn.cursor()
     # Insert contig
     sql = ''' INSERT INTO contigs (contig, description, sequence_length, hostID) VALUES (?,?,?,?) '''
@@ -112,8 +117,9 @@ def insert_record_to_DB(conn, hostID, seq_description, seq_id, seq_length, cds_l
 
 
 def add_number_of_contigs_and_L50_to_host_table(conn, hostID):
-    '''
-    '''
+    """
+    Gets the number of contigs and the L50 value for a host and inserts the information into the hosts table.
+    """
 
     # Get the sequence lengths of all contigs belonging to that host
     c = conn.cursor()
