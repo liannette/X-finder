@@ -42,12 +42,10 @@ if __name__ == "__main__":
     print("Commandline input:", " ".join(sys.argv))
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--genus', action="store", dest="genus", type=str, help='Genus of the genomes')
     parser.add_argument('--mode', action="store", dest="mode", type=int, choices=[1,2], required=True, help='Specify if you want to create symbolic links for subsequent use of antismash (mode 1) of of discoverBGC (mode 2)')
     parser.add_argument('--outdir', action="store", dest="outdir", type=str, required=True, help='Directory for the symbolic links')
     
     args = parser.parse_args()
-    genus = args.genus
     mode = args.mode
     outdir = args.outdir
 
