@@ -17,10 +17,6 @@ mkdir $OUTDIR
 python3 $SCRIPT_DIR/download_genomes.py --genus $GENUS --assembly-levels $ASSEMBLY_LEVEL --max_genomes $MAX_GENOMES --outdir $OUTDIR \
     >> $OUTDIR/output.log 2>&1
 
-unzip $OUTDIR/ncbi_dataset.zip -d $OUTDIR
-rm $OUTDIR/ncbi_dataset.zip
-rm $OUTDIR/README.md
-
 
 
 # PFAM annotate the genomes with antismash
