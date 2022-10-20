@@ -60,9 +60,6 @@ class Pfam:
             return True
         else:
             return False
-    
-    def _is_antismash_core(self):
-        self.antismash_core = 1
 
     def _to_list(self):
         return [self.cds_locus_tag, self.pfam_num, self.start, self.end,
@@ -95,24 +92,21 @@ class Cds:
 
 
 class ProtoCore:
-    def __init__(self, start, end, strand):
+    def __init__(self, start, end):
         self.start = start  # 0-based
         self.end = end      # 0-based
-        self.strand = strand
 
     @classmethod
     def _from_gbk_feature(cls, feature):
         proto_core = cls(
             feature.location.nofuzzy_start,
-            feature.location.nofuzzy_end,
-            feature.strand,
+            feature.location.nofuzzy_end
         )
         return proto_core
 
     def _contains_pfam(self, pfam):
         if (self.start <= pfam.start 
-            and self.end >= pfam.end
-            and self.strand == pfam.strand):
+            and self.end >= pfam.end):
             return True
         else:
             return False
@@ -144,7 +138,9 @@ class SeqRecord:
 
         for feature in rec.features:
             if feature.type == "proto_core":
-                antismash_core_list.append(ProtoCore._from_gbk_feature(feature))
+                antismash_core_list.append(
+                    ProtoCore._from_gbk_feature(feature)
+                    )
             elif feature.type == "CDS":
                 try:
                     cds = Cds._from_gbk_feature(feature)
@@ -155,13 +151,13 @@ class SeqRecord:
                     cds_list.append(cds)
             elif feature.type == "PFAM_domain": 
                 pfam = Pfam._from_gbk_feature(feature)
-                # g_pfam_list without overlapping (>50%) pfams
+                # g_pfam_list is without overlapping (>50%) pfams
                 cls._add_pfam_feature(g_pfam_list, pfam)
 
         for proto_core in antismash_core_list:
             for pfam in g_pfam_list:
                 if proto_core._contains_pfam(pfam):
-                    pfam._is_antismash_core()
+                    pfam.antismash_core = 1
 
         record = cls(
             acc=rec.id, # is ACCESSION.VERSION in gbk file
