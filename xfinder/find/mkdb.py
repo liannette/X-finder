@@ -90,11 +90,12 @@ def create_database_tables(conn):
     )
     c.execute('''
                 CREATE TABLE "cluster" (
-                	"clusterID"	            INTEGER NOT NULL UNIQUE,
-	                "core_genome_indicator"	REAL,
-	                "transporter_indicator"	REAL,
-                    "antismash_indicator"   REAL,
-	                "number_core_pfams"	    INTEGER,
+                	"clusterID"	                INTEGER NOT NULL UNIQUE,
+	                "max_core_genome_fraction"	REAL,
+	                "transporter_indicator"	    REAL,
+	                "number_core_pfams"	        INTEGER,
+                    "min_antismash_fraction"    REAL,
+                    "max_antismash_fraction"    REAL,
                 	PRIMARY KEY("clusterID" AUTOINCREMENT)
                 )
                 '''

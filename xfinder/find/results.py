@@ -38,24 +38,23 @@ class Cds:
         return cds
     
 
-def get_filtered_cluster(core_genome_cutoff, antismash_cutoff, 
-                         transporter_cutoff, database_path):
+def get_filtered_cluster(core_genome_cutoff, transporter_cutoff,
+                         database_path):
     conn = sqlite3.connect(database_path)
     with contextlib.closing(conn.cursor()) as c:
         sql = '''   
             SELECT clusterID, 
-                   core_genome_indicator, 
-                   antismash_indicator, 
+                   max_core_genome_fraction, 
                    transporter_indicator, 
-                   number_core_pfams
+                   number_core_pfams,
+                   min_antismash_fraction,
+                   max_antismash_fraction
               FROM cluster 
-             WHERE core_genome_indicator <= ?
-                   AND antismash_indicator <= ?
+             WHERE max_core_genome_fraction <= ?
                    AND transporter_indicator <= ?
           ORDER BY clusterID
             ''' 
         c.execute(sql, (core_genome_cutoff, 
-                        antismash_cutoff, 
                         transporter_cutoff))
         rows = c.fetchall()
     conn.close()
@@ -352,35 +351,40 @@ def _print_msg_box(msg, outfile, indent=1, width=None, title=None):
     print(box, file=outfile)
 
 
-def _print_summary_header(database, core_genome_cutoff, antismash_cutoff, 
+def _print_summary_header(database, core_genome_cutoff, 
                           transporter_cutoff, outfile):
     """
     Prints a header for the summary outfile. Specifies the database name, the applied filters and labels.
     """
     #"CDS product with neither + or - were only found in query sublists\n\n" \
-    header =    "Database: {}\n"\
-                "Core genome indicator cutoff: {}\n" \
-                "Antismash indicator cutoff: {}\n" \
-                "Transporter indicator cutoff: {}\n\n" \
-                "Core genome indicator = for each sublist, the fraction of CDS that align to the core genome of \n" \
-                "                        Streptomyces is calculated. The core genome indicator is the highest \n" \
-                "                        core genome fraction of all sublists in the cluster.\n" \
-                "Antismash indicator   = for each sublist, the fraction of pfams that are in the core region of  \n" \
-                "                        an antismash result is calculated. The antismash indicator is the highest \n" \
-                "                        antismash fraction of all sublists in the cluster.\n" \
-                "Transporter indicator = the fraction of core pfams (core pfams = pfam numbers that are present in \n" \
-                "                        every sublist of the cluster) that are associated with transporter function\n\n" \
-                " + = the CDS for this product does not align to the core genome of Streptomyces (<90% identity)\n" \
-                " - = the CDS for this product aligns to the core genome of Streptomyces (>90% identity)\n" \
-                "+- = at least one CDS for this product aligns to the core genome of Streptomyces, \n" \
-                "     but also at least one CDS for this product aligns to the core genome of Streptomyces \n" \
-                " * = CDS product is not found in every sublists of the cluster".format(
-                    database, 
-                    core_genome_cutoff, 
-                    antismash_cutoff, 
-                    transporter_cutoff,
-
-                )
+    header =    
+        "Database: {}\n" \
+        "Max core genome fraction cutoff: {}\n" \
+        "Transporter indicator cutoff: {}\n\n" \
+        "Max core genome fraction = for each sublist, the fraction of CDS that align\n" \
+        "                           to the core genome of Streptomyces is calculated.\n" \
+        "                           Streptomyces is calculated. The core genome\n" \
+        "                           indicator is the highest core genome fraction of\n" \
+        "                           all sublists in the cluster.\n" \
+        "Antismash fraction       = for each sublist, the fraction of pfams that are\n" \
+        "                           in the proto core region of an antismash result\n" \
+        "                           is calculated. For each cluster, both the maximum\n" \
+        "                           and the minimum antismash fraction is shown.\n" \
+        "Transporter indicator    = the fraction of core pfams that are associated\n" \
+        "                           with transporter function. Core pfams are those\n" \
+        "                           pfam numbers that are present in every sublist of\n" \
+        "                           the cluster)\n\n" \
+        " + = CDS for this product does not align to the supplied core genome file\n" \
+        "     (<90% identity)\n" \
+        " - = CDS for this product aligns to the supplied core genome file\n" \
+        "     (>90% identity)\n" \
+        "+- = at least one CDS for this product aligns to the supplied core genome\n" \
+        "     file, but also at least one CDS for this product does not align\n" \
+        " * = CDS product is not found in every sublists of the cluster".format(
+            database, 
+            core_genome_cutoff, 
+            transporter_cutoff,
+            )
     _print_msg_box(msg=header, indent=2, outfile=outfile)
 
 
@@ -388,30 +392,33 @@ def _print_cluster_to_summary_results(entry, outfile):
     '''
     Prints an cluster to the summary text file
     '''
-      
+
     clusterID = entry[0]
-    core_genome_indicator = entry[1]
-    antismash_indicator = entry[2]
-    transporter_indicator = entry[3]
-    number_core_pfams = entry[4]
-    num_query_sublists = entry[5]
-    num_ref_sublists = entry[6]
-    cds_in_cluster = entry[7]
-            
+    max_core_genome_fraction = entry[1]
+    transporter_indicator = entry[2]
+    number_core_pfams = entry[3]
+    min_antismash_fraction = entry[4]
+    max_antismash_fraction = entry[5]
+    num_query_sublists = entry[6]
+    num_ref_sublists = entry[7]
+    cds_in_cluster = entry[8]
+
     print("> Cluster {} \n" \
           "Number of sublists: {} ({} query, {} ref) \n" \
-          "Core genome indicator: {} \n" \
-          "Antismash indicator: {} \n" \
+          "Max core genome fraction: {} \n" \
           "Transporter indicator: {} \n" \
-          "Number of core pfams: {}".format(
+          "Number of core pfams: {} \n" \
+          "Min antismash fraction: {} \n" \
+          "Max antismash fraction: {}".format(
               clusterID, 
               num_query_sublists + num_ref_sublists, 
               num_query_sublists, 
               num_ref_sublists,
-              core_genome_indicator, 
-              antismash_indicator,
-              transporter_indicator, 
-              number_core_pfams
+              max_core_genome_fraction, 
+              transporter_indicator,
+              number_core_pfams,
+              min_antismash_fraction, 
+              max_antismash_fraction,  
               ), file=outfile)
     print("CDS products:", file=outfile)
     for cds_product in cds_in_cluster:
@@ -435,23 +442,25 @@ def get_results(cluster_list, database_path, core_genome_format,
     detailed_results = list()
 
     for cluster in cluster_list:
-        
+    
         clusterID = cluster[0]
-        core_genome_indicator = cluster[1]
-        antismash_indicator = cluster[2]
-        transporter_indicator = cluster[3]
-        number_core_pfams = cluster[4]
-
+        max_core_genome_fraction = cluster[1]
+        transporter_indicator = cluster[2]
+        number_core_pfams = cluster[3]
+        min_antismash_fraction = cluster[4]
+        max_antismash_fraction = cluster[5]
+    
         # Get all the sublists in the cluster
         sublists = _get_sublists(conn, clusterID) 
         
         # For summary results
         summary_results.append([
             clusterID,
-            core_genome_indicator,
-            antismash_indicator,
+            max_core_genome_fraction,
             transporter_indicator,
             number_core_pfams,
+            min_antismash_fraction,
+            max_antismash_fraction,
             _num_sublist_of_host_type(sublists, "query"), 
             _num_sublist_of_host_type(sublists, "ref"),
             _labeled_summary_cds_products(sublists)
@@ -462,10 +471,11 @@ def get_results(cluster_list, database_path, core_genome_format,
             detailed_results.append([
                 clusterID,
                 len(sublists), 
-                core_genome_indicator, 
-                antismash_indicator,
+                max_core_genome_fraction, 
                 transporter_indicator, 
                 number_core_pfams,
+                min_antismash_fraction,
+                max_antismash_fraction,
                 sublist.id,
                 sublist.host_type, 
                 sublist.organism, 
@@ -494,10 +504,11 @@ def write_detailed_results(detailed_results, writer, workbook):
     cols = [
         'clusterID', 
         'number of sublists', 
-        'core genome indicator', 
-        'antismash indicator',
+        'max core genome fraction', 
         'transporter indicator', 
         'number of core pfams', 
+        'min antismash fraction',
+        'max antismash fraction',
         'sublist id',
         'host type', 
         'organism', 
@@ -588,7 +599,7 @@ def write_detailed_results(detailed_results, writer, workbook):
 
 
 def write_summary_file(summary_results, database_path, core_genome_cutoff, 
-                        antismash_cutoff, transporter_cutoff, out_dir):
+                       transporter_cutoff, out_dir):
 
     # Write summary results to txt file
     summary_results_path = os.path.join(out_dir, "results_summary.txt")
@@ -596,7 +607,6 @@ def write_summary_file(summary_results, database_path, core_genome_cutoff,
         _print_summary_header(
             database_path, 
             core_genome_cutoff, 
-            antismash_cutoff, 
             transporter_cutoff, 
             outfile_summary
             )

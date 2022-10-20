@@ -171,19 +171,17 @@ def cluster(threads, database_path):
         )
 
 
-def results(core_genome_cutoff, antismash_cutoff, transporter_cutoff, out_dir, 
+def results(core_genome_cutoff, transporter_cutoff, out_dir, 
             database_path):
     cluster_list = xfinder.find.results.get_filtered_cluster(
         core_genome_cutoff, 
-        antismash_cutoff, 
         transporter_cutoff, 
         database_path
         )
     print_stdout("Printing results. {} cluster fullfill the cutoff criteria "
-                 "(core genome: {}, antismash: {}, transporter: {})".format(
+                 "(core genome: {}, transporter: {})".format(
                      len(cluster_list), 
                      core_genome_cutoff, 
-                     antismash_cutoff, 
                      transporter_cutoff
                  ))
                  
@@ -199,9 +197,8 @@ def results(core_genome_cutoff, antismash_cutoff, transporter_cutoff, out_dir,
                                                 workbook)
     
     xfinder.find.results.write_summary_file(
-        summary_results, database_path, core_genome_cutoff, antismash_cutoff, 
-        transporter_cutoff, out_dir
-        )
+        summary_results, database_path, core_genome_cutoff, transporter_cutoff,
+        out_dir)
     
 
 #############################################################################
@@ -232,44 +229,42 @@ def main():
     # query_genome_dirs = [os.path.join(genomes_dir, "query_genomes"),]  
 
 
-    # # Create db
-    # make_database(database_path)
+    # Create db
+    make_database(database_path)
 
-    # # Import genomes
-    # # I need to add a check that the directories indeed exist
-    # import_genomes_to_database(database_path, "ref", ref_genome_dirs)
-    # import_genomes_to_database(database_path, "query", query_genome_dirs)
+    # Import genomes
+    # I need to add a check that the directories indeed exist
+    import_genomes_to_database(database_path, "ref", ref_genome_dirs)
+    import_genomes_to_database(database_path, "query", query_genome_dirs)
 
-    # # Add core genome information
-    # core_genome_path = os.path.join(get_git_root(), "data", "core genome", 
-    #                                 "Streptomyces.fasta") 
-    # coregen(database_path, core_genome_path)
+    # Add core genome information
+    core_genome_path = os.path.join(get_git_root(), "data", "core genome", 
+                                    "Streptomyces.fasta") 
+    coregen(database_path, core_genome_path)
+    # Add transporter pfam information
+    transporter_pfams_path = os.path.join(get_git_root(), "data",
+                             "transporter pfams", "all_transporter_pfams.txt")
+    transp(database_path, transporter_pfams_path)
 
-    # # Add transporter pfam information
-    # file_path = os.path.join(get_git_root(), "data", "transporter pfams",
-    #                          "all_transporter_pfams.txt")
-    # transp(database_path, file_path)
-
-    # # Run comparison to find hits
-    # seed_size = 2
-    # gap_threshold = 2
-    # size_threshold = 6
-    # DNA_length_threshold = 7000
-    # threads = 8
-    # max_l50 = 3
-    # compare(seed_size, gap_threshold, size_threshold, DNA_length_threshold, 
-    #             threads, max_l50, database_path)
+    # Run comparison to find hits
+    seed_size = 2
+    gap_threshold = 2
+    size_threshold = 6
+    DNA_length_threshold = 7000
+    threads = 8
+    max_l50 = 3
+    compare(seed_size, gap_threshold, size_threshold, DNA_length_threshold, 
+                threads, max_l50, database_path)
 
     # # cluster hits
     # threads = 8
     # cluster(threads, database_path)
 
-    # print results
-    core_genome_cutoff = 0.5
-    transporter_cutoff = 0.2
-    antismash_cutoff = 0.5
-    results(core_genome_cutoff, antismash_cutoff, transporter_cutoff, out_dir, 
-            database_path)
+    # # print results
+    # core_genome_cutoff = 0.5
+    # transporter_cutoff = 0.2
+    # results(core_genome_cutoff, transporter_cutoff, out_dir, 
+    #         database_path)
 
 if __name__ == "__main__":
 

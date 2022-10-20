@@ -145,7 +145,7 @@ def _add_clusterID_to_sublists_table(cluster_id, sublists, conn):
             c.execute(sql, (cluster_id, sublist[1], sublist[2]))
 
 
-def _get_core_genome_indicator(cluster_id, conn):
+def _get_max_core_genome_fraction(cluster_id, conn):
     with contextlib.closing(conn.cursor()) as c:
         sql = """
             SELECT max(core_genome_fraction)
@@ -153,20 +153,20 @@ def _get_core_genome_indicator(cluster_id, conn):
             WHERE clusterID = ?
             """
         c.execute(sql, [str(cluster_id)])
-        core_genome_indicator = c.fetchall()[0][0]
-    return core_genome_indicator
+        max_core_genome_fraction = c.fetchall()[0][0]
+    return max_core_genome_fraction
     
 
-def _get_antismash_indicator(cluster_id, conn):
+def _get_antismash_fraction_range(cluster_id, conn):
     with contextlib.closing(conn.cursor()) as c:
         sql = """
-            SELECT max(antismash_fraction)
+            SELECT min(antismash_fraction), max(antismash_fraction)
             FROM sublists
             WHERE clusterID = ?
             """
         c.execute(sql, [str(cluster_id)])
-        antismash_indicator = c.fetchall()[0][0]
-    return antismash_indicator
+        min_as_fraction, max_as_fraction = c.fetchall()[0]
+    return min_as_fraction, max_as_fraction
 
 
 def _get_transporter_indicator(cluster_id, sublists, conn):
@@ -192,22 +192,30 @@ def _get_transporter_indicator(cluster_id, sublists, conn):
         if transporter_ind is None:
             transporter_ind = 0
         
-    return transporter_ind, number_core_pfams
+    return round(transporter_ind, 3), number_core_pfams
 
 
-def _add_cluster_information(cluster_id, core_genome_ind, antismash_ind, 
-                             transporter_ind, number_core_pfams, conn):
+def _add_cluster_information(cluster_id, max_core_genome_fraction, 
+                             antismash_fraction_range, transporter_ind, 
+                             number_core_pfams, conn):
 
     with contextlib.closing(conn.cursor()) as c:
         sql = '''
-            INSERT INTO cluster (clusterID, core_genome_indicator, 
-                                 antismash_indicator, transporter_indicator, 
+            INSERT INTO cluster (clusterID, 
+                                 max_core_genome_fraction, 
+                                 min_antismash_fraction, 
+                                 max_antismash_fraction,
+                                 transporter_indicator, 
                                  number_core_pfams)
                  VALUES (?, ?, ?, ?, ?)
             '''
-        c.execute(sql, (cluster_id, round(core_genome_ind, 3), 
-                        round(antismash_ind, 3), round(transporter_ind, 3), 
-                        number_core_pfams))
+        c.execute(sql, (cluster_id, 
+                        max_core_genome_fraction,
+                        antismash_fraction_range[0], 
+                        antismash_fraction_range[1], 
+                        transporter_ind, 
+                        number_core_pfams
+                        ))
 
 
 def add_cluster_to_db(clustered_sublists, database_path):
@@ -219,9 +227,17 @@ def add_cluster_to_db(clustered_sublists, database_path):
         sublists = list(clustered_sublists[i])
         _add_clusterID_to_sublists_table(cluster_id, sublists, conn)
         conn.commit()
-        core_genome_ind = _get_core_genome_indicator(cluster_id, conn)
-        antismash_ind = _get_antismash_indicator(cluster_id, conn)
+        max_core_genome_fraction = _get_max_core_genome_fraction(cluster_id, 
+                                                                 conn)
+        antismash_fraction_range = _get_antismash_fraction_range(cluster_id, 
+                                                                 conn)
         transporter_ind, number_core_pfams = _get_transporter_indicator(
             cluster_id, sublists, conn)
-        _add_cluster_information(cluster_id, core_genome_ind, antismash_ind, transporter_ind, number_core_pfams, conn)
+        _add_cluster_information(
+            cluster_id, 
+            max_core_genome_fraction, 
+            antismash_fraction_range, 
+            transporter_ind, 
+            number_core_pfams, 
+            conn)
     conn.close()
