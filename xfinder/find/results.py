@@ -357,7 +357,7 @@ def _print_summary_header(database, core_genome_cutoff,
     Prints a header for the summary outfile. Specifies the database name, the applied filters and labels.
     """
     #"CDS product with neither + or - were only found in query sublists\n\n" \
-    header =    
+    header = \
         "Database: {}\n" \
         "Max core genome fraction cutoff: {}\n" \
         "Transporter indicator cutoff: {}\n\n" \
