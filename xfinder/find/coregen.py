@@ -44,15 +44,17 @@ def create_diamond_database(diamond_db, core_genome_path):
                       diamond_db], stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate() 
 
+    # No error occured
     if process.returncode == 0:
-        # Both stdout stderr are send to stdout. This is because diamond
+        # Both stdout & stderr are send to stdout. Diamond
         # sends status messages to stderr, even if there is no error
         if len(stdout) > 0:
             print_stdout(stdout.decode())
         if len(stderr) > 0:
             print_stdout(stderr.decode())
+    # Error occured      
     else:
-        # Error occured, therefore stderr is also send to stderr
+        # stderr is send to stderr
         if len(stdout) > 0:
             print_stdout("STDOUT\n" + stdout.decode())
         if len(stderr) > 0:
@@ -62,6 +64,7 @@ def create_diamond_database(diamond_db, core_genome_path):
 
 def run_diamond(trans_fasta, diamond_db, result_file):
     """ align the cds translations against the core genome """
+    # Add the number of threads!
     process = Popen(["diamond", "blastp", "-q", trans_fasta , "-d", diamond_db,
                      "-o", result_file, "--fast"], stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
@@ -83,21 +86,21 @@ def run_diamond(trans_fasta, diamond_db, result_file):
 
 def _core_genome_information_to_db(database_path, core_genome_locus_tags, not_core_genome_locus_tags):
     """
-    CDS that are core genome are marked with "-"
-    CDS that are not core genome are marked with "+"
+    CDS that have aligned to core genome are marked with 1,
+    CDS that have not aligned to core genome are marked with 0
     """
     conn = sqlite3.connect(database_path)
     with conn:
         with contextlib.closing(conn.cursor()) as c:
             sql = """ 
                     UPDATE cds
-                       SET core_genome = "-"
+                       SET core_genome = 1
                      WHERE locus_tag = ? 
                   """ 
             c.executemany(sql, [[x] for x in core_genome_locus_tags])
             sql = """ 
                     UPDATE cds
-                       SET core_genome = "+"
+                       SET core_genome = 0
                      WHERE locus_tag = ? 
                   """ 
             c.executemany(sql, [[x] for x in not_core_genome_locus_tags])
@@ -108,9 +111,9 @@ def add_core_genome_information(database_path, result_file, cds_list):
     """
     """
     df = pd.read_csv(result_file, sep='\t', header=None)
-    core_genome_locus_tags = list(df.iloc[:, 0].unique())
-    not_core_genome_locus_tags = [x[0] for x in cds_list 
-                                  if x[0] not in core_genome_locus_tags]
+    core_genome_locus_tags = set(df.iloc[:, 0])
+    not_core_genome_locus_tags = set(
+        [x[0] for x in cds_list if x[0] not in core_genome_locus_tags])
     _core_genome_information_to_db(database_path, core_genome_locus_tags, 
                                    not_core_genome_locus_tags)
     return len(core_genome_locus_tags)

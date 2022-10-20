@@ -7,10 +7,11 @@ def test_sets():
     print(sublists_queue)
     print(sublists_in_cluster)
 
-x = 5
-z = [{2},{x, 3, 4}, {0, 1}]
-
-z = sorted(z, key=len, reverse=True)
-
-
-print(z)
+def no_return():
+    if False:
+        return "Never return"
+    
+tpl = ("ref", 123, 456)
+all_sublists = [("ref", 123, 456), ("ref", 124, 456)]
+dct = dict.fromkeys(all_sublists, None)
+print(dct)

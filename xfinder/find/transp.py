@@ -88,10 +88,3 @@ def add_transporter_pfam_information(transporter_pfams, database_path):
                        WHERE pfam_num = ? '''
             c.executemany(sql, [(pfam,) for pfam in transporter_pfams])
     conn.close()
-
-
-
-
-
-file_path = "transporter_pfams_new"
-_get_transporter_pfams_from_pfam2go(file_path)

@@ -19,12 +19,12 @@ def create_database_tables(conn):
     )
     c.execute('''
                 CREATE TABLE "seq_records" (
-                    "seq_acc"	    TEXT NOT NULL UNIQUE,
+                    "seq_accession"	    TEXT NOT NULL UNIQUE,
 					"hostID"	    TEXT NOT NULL,
 	                "description"	TEXT NOT NULL,
 	                "seq_length"	INTEGER NOT NULL,
 	                FOREIGN KEY("hostID") REFERENCES "hosts"("hostID"),
-	                PRIMARY KEY("seq_acc")
+	                PRIMARY KEY("seq_accession")
                 )
                 '''
     )
@@ -32,13 +32,14 @@ def create_database_tables(conn):
     c.execute('''
                 CREATE TABLE "cds" (
                 	"locus_tag"	    TEXT NOT NULL UNIQUE,
-					"seq_acc"	    TEXT NOT NULL,
+					"seq_accession"	TEXT NOT NULL,
                 	"product"	    TEXT NOT NULL,
                 	"translation"	TEXT NOT NULL,
                 	"cds_start"	    INTEGER NOT NULL,
                 	"cds_end"	    INTEGER NOT NULL,
-                	"core_genome"   TEXT DEFAULT "",
-                	FOREIGN KEY("seq_acc") REFERENCES "seq_records"("seq_acc"),
+                	"core_genome"   INTEGER,
+                	FOREIGN KEY("seq_accession") REFERENCES \
+                        "seq_records"("seq_accession"),
                 	PRIMARY KEY("locus_tag")
                 )
                 '''
@@ -48,44 +49,52 @@ def create_database_tables(conn):
                 	"pfamID"	        INTEGER NOT NULL UNIQUE,
                 	"pfam_num"	        TEXT NOT NULL,
                     "locus_tag"         TEXT NOT NULL,
-					"seq_acc"	        TEXT NOT NULL,
+					"seq_accession"	    TEXT NOT NULL,
                 	"pfam_start"	    INTEGER NOT NULL,
                 	"pfam_end"	        INTEGER NOT NULL,
                 	"strand"	        INTEGER NOT NULL,
                     "antismash_core"    INTEGER NOT NULL,
                     "transporter"       INTEGER,
 	                FOREIGN KEY("locus_tag") REFERENCES "cds"("locus_tag"),
-                    FOREIGN KEY("seq_acc") REFERENCES "seq_records"("seq_acc"),
+                    FOREIGN KEY("seq_accession") REFERENCES \
+                        "seq_records"("seq_accession"),
 	                PRIMARY KEY("pfamID" AUTOINCREMENT)
                 )
                 '''
     )
     c.execute('''
-                CREATE TABLE "hits" (
-                	"hitID"	                INTEGER NOT NULL UNIQUE,
+                CREATE TABLE "sublists" (
                 	"clusterID"	            INTEGER,
-                	"query_seq_acc"	        TEXT NOT NULL,
+                	"host_type"	            TEXT NOT NULL,
+                	"first_pfamID"	        INTEGER NOT NULL,
+                	"last_pfamID"		    INTEGER NOT NULL,
+                    "core_genome_fraction"  REAL NOT NULL,
+                    "antismash_fraction"    REAL NOT NULL,
+
+                	FOREIGN KEY("first_pfamID") REFERENCES "pfams"("pfamID"),
+                    FOREIGN KEY("last_pfamID") REFERENCES "pfams"("pfamID"),
+                    PRIMARY KEY("first_pfamID", "last_pfamID")
+                )
+                '''
+    )
+    c.execute('''
+                CREATE TABLE "hits" (
+                    "hitID"                 INTEGER NOT NULL UNIQUE,
                 	"query_first_pfamID"	INTEGER NOT NULL,
-                	"query_last_pfamID"		INTEGER NOT NULL,
-                	"ref_seq_acc"			TEXT NOT NULL,
+                    "query_last_pfamID"		INTEGER NOT NULL,
                 	"ref_first_pfamID"		INTEGER NOT NULL,
-                	"ref_last_pfamID"		INTEGER NOT NULL,
-                    FOREIGN KEY("query_seq_acc") REFERENCES "seq_records"("seq_acc"),
-                	FOREIGN KEY("query_first_pfamID") REFERENCES "pfams"("pfamID"),
-                    FOREIGN KEY("query_last_pfamID") REFERENCES "pfams"("pfamID"),
-                	FOREIGN KEY("ref_seq_acc") REFERENCES "seq_records"("seq_acc"),
-                    FOREIGN KEY("ref_first_pfamID") REFERENCES "pfams"("pfamID"),
-                	FOREIGN KEY("ref_last_pfamID") REFERENCES "pfams"("pfamID"),
+                    "ref_last_pfamID"		INTEGER NOT NULL,
                     PRIMARY KEY("hitID" AUTOINCREMENT)
                 )
                 '''
     )
     c.execute('''
                 CREATE TABLE "cluster" (
-                	"clusterID"	INTEGER NOT NULL UNIQUE,
+                	"clusterID"	            INTEGER NOT NULL UNIQUE,
 	                "core_genome_indicator"	REAL,
 	                "transporter_indicator"	REAL,
-	                "number_core_pfams"	INTEGER,
+                    "antismash_indicator"   REAL,
+	                "number_core_pfams"	    INTEGER,
                 	PRIMARY KEY("clusterID" AUTOINCREMENT)
                 )
                 '''
@@ -123,30 +132,39 @@ def add_database_indeces(conn):
 
         # Used in compare.py
         c.execute(''' 
-                CREATE INDEX idx_pfams_seqacc
-                ON pfams (seq_acc) 
+                CREATE INDEX idx_pfams_seqaccession
+                ON pfams (seq_accession) 
                 ''')
-
-        # Used in compare.py
         c.execute(''' 
                 CREATE INDEX idx_seqrecords_hostID
                 ON seq_records (hostID)
                 ''')
-        
-        # Used in compare.py
         c.execute('''
                 CREATE INDEX idx_hosts_hosttype_L50
                 ON hosts (host_type, L50)
                 ''')
 
-        # Used in cluster
+        # Used in cluster.py
         c.execute(''' 
-                CREATE INDEX hits_querypfamIDs
+                CREATE INDEX idx_hits_query_pfamIDs
                 ON hits (query_first_pfamID, query_last_pfamID) 
                 ''')
+        # Used in cluster.py
         c.execute(''' 
-                CREATE INDEX hits_refpfamIDs
+                CREATE INDEX idx_hits_ref_pfamIDs
                 ON hits (ref_first_pfamID, ref_last_pfamID) 
                 ''')
-
-
+        # Used in cluster.py and results.py
+        c.execute(''' 
+                CREATE INDEX idx_sublists_clusterID
+                ON sublists (clusterID) 
+                ''')
+        
+        # Used in results.py
+        c.execute(''' 
+                CREATE INDEX idx_cluster_indicators
+                ON cluster (core_genome_indicator, 
+                            antismash_indicator, 
+                            transporter_indicator
+                            ) 
+                ''')

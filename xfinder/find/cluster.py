@@ -4,38 +4,20 @@ import contextlib
 
 
 
-def _get_all_hit_ids(conn):
+def _get_all_sublists(database_path):
+    conn = sqlite3.connect(database_path)
     with contextlib.closing(conn.cursor()) as c:
-        rows = c.execute('''SELECT hitID FROM hits''').fetchall()
-    return [row[0] for row in rows]
+        sql = '''
+            SELECT host_type, first_pfamID, last_pfamID 
+              FROM sublists
+            '''
+        rows = c.execute(sql).fetchall()
+    conn.close()
+    return [tuple(row) for row in rows]
 
 
-def _hit_to_sublists(hit):
-    hitID = hit[0]
-    query_sublist = ("query", *hit[1:3])
-    ref_sublist = ("ref", *hit[3:5])
-    return hitID, query_sublist, ref_sublist
 
-
-def _get_sublists_from_db(conn, hit_id):
-    """
-    Gets the first and the last pfamID for both query and reference
-    sublist of a hit
-    """
-    with contextlib.closing(conn.cursor()) as c:
-        sql =   """
-                SELECT hitID, 
-                       query_first_pfamID, query_last_pfamID, 
-                       ref_first_pfamID, ref_last_pfamID
-                FROM hits
-                WHERE hitID = ?
-                """
-        row = c.execute(sql, (hit_id,)).fetchall()[0]
-    _, query_sublist, ref_sublist = _hit_to_sublists(row)
-    return query_sublist, ref_sublist
-
-
-def _find_similar_hits(database_path, sublist):
+def _find_similar_sublists(database_path, sublist):
     """ 
     Finds similar sublists. 
     A similar sublist is defined by having +/-10% identity of PFAMs.
@@ -44,182 +26,202 @@ def _find_similar_hits(database_path, sublist):
     sublists with the exact same PFAMs. However, for a sublistB
     containing the same PFAMS plus an addional one, sublistA would be a
     similar sublist.
-
-    If a sublist already has a clusterID, if will not be put into the
-    queue, but the clusters will be merged later.
     """
     host_type, first_pos, last_pos = sublist
-    sublist_length = last_pos - first_pos + 1 # +1 as positions aren't 0 based
-    max_pfam_difference = int(sublist_length * 0.1)
 
     conn = sqlite3.connect(database_path)
     with contextlib.closing(conn.cursor()) as c:
-        # temporary table number_of_different_pfams contains only hits
+        
+        # find sublists that form a hit together
+        other_host_type = "ref" if host_type  == "query" else "query"
+        sql = """
+            SELECT "{1}", {1}_first_pfamID, {1}_last_pfamID
+              FROM hits
+             WHERE {0}_first_pfamID = ?
+                   AND {0}_last_pfamID = ?
+            """.format(host_type, other_host_type)
+        rows = c.execute(sql, (first_pos, last_pos)).fetchall()
+        similar_hits = [tuple(row) for row in rows]
+        
+        # Find sublists that overlap
+        sublist_length = last_pos - first_pos + 1  # positions aren't 0 based
+        max_pfam_difference = int(sublist_length * 0.1)
+        # temporary table number_of_different_pfams contains sublists
         # that have the length of the max_pfam_difference added on both
-        # side ofthe ref/query pfam sublist. In the next step only the
-        # hits are taken that matches the criteria of the max identity
-        # difference
+        # side of sublist. In the next step only the sublists that
+        # match the criteria of the max identity difference are chosem
         sql = """
               WITH number_of_different_pfams AS (
-                   SELECT hitID,
-                          query_first_pfamID, query_last_pfamID, 
-                          ref_first_pfamID, ref_last_pfamID,
-                   	      ABS({0}_first_pfamID-{1})+ABS({0}_last_pfamID-{2}) 
+                   SELECT host_type, first_pfamID, last_pfamID, 
+                   	      ABS(first_pfamID-{0})+ABS(last_pfamID-{1}) 
                               AS pfam_difference
-                     FROM hits
-                    WHERE {0}_first_pfamID >= {1}-{3}
-                          AND {0}_last_pfamID <= {2}+{3}
+                     FROM sublists
+                    WHERE first_pfamID >= {0}-{2}
+                          AND last_pfamID <= {1}+{2}
                    )
-            SELECT hitID,
-                   query_first_pfamID, query_last_pfamID, 
-                   ref_first_pfamID, ref_last_pfamID
+            SELECT host_type, first_pfamID, last_pfamID
               FROM number_of_different_pfams
-             WHERE pfam_difference <= {3}
-            """.format(host_type, first_pos, last_pos, max_pfam_difference)
+             WHERE pfam_difference <= {2}
+            """.format(first_pos, last_pos, max_pfam_difference)
         rows = c.execute(sql).fetchall()
-    conn.close()
-
-    return rows
-
-
-def cluster_hits(conn, threads, database_path):
-
-    conn = sqlite3.connect(database_path)
-
-    all_hit_ids = _get_all_hit_ids(conn)
-    hit_to_cluster = dict.fromkeys(all_hit_ids, None) # cluster is value
-    cluster_to_hits = dict() # cluster is key, set of hitIDs is value
-    cluster = 0
-
-    for i in range(len(all_hit_ids)):
-        hit_id = all_hit_ids[i]
-        if hit_to_cluster[hit_id] is None:
-            
-            # sublists_queue contains sublists that are in the cluster, 
-            # but haven't yet been used to search for similar sublists
-            sublists_queue = set(_get_sublists_from_db(conn, hit_id))
-            # sublists_in_cluster contains all sublists that have been 
-            # already used to search for similar sublists
-            sublists_in_cluster = set()
-            hit_ids_in_cluster = set()
-
-            while len(sublists_queue) > 0:
-                
-                # Find hits with similar sublists
-                results = Parallel(n_jobs=threads)(delayed(_find_similar_hits) \
-                    (database_path, sublist) for sublist in sublists_queue)
-                similar_hits = [hit for r in results for hit in r]
-
-                sublists_in_cluster.update(sublists_queue)
-                sublists_queue = set() # reset queue
-
-                for hit in similar_hits:
-                    hit_id, query_sublist, ref_sublist = _hit_to_sublists(hit)
-                    if hit_to_cluster[hit_id] is None:
-                        # Hit has not been put into a cluster before
-                        hit_ids_in_cluster.add(hit_id)
-                        for sublist in (query_sublist, ref_sublist):
-                            if sublist not in sublists_in_cluster:
-                                sublists_queue.add(sublist)
-                    else:
-                        # Hit is has been clustered before
-                        merge_cluster = hit_to_cluster[hit_id]
-                        merge_hit_ids = cluster_to_hits.pop(merge_cluster)
-                        hit_ids_in_cluster.update(merge_hit_ids)
-
-            # Add cluster information to dicts
-            cluster_to_hits[cluster] = hit_ids_in_cluster
-            for hit_id in hit_ids_in_cluster:
-                hit_to_cluster[hit_id] = cluster
-
-            cluster += 1
+        similar_hits += [tuple(row) for row in rows]
         
     conn.close()
 
+    return similar_hits
+
+
+def cluster_hits(threads, database_path):
+
+    all_sublists = _get_all_sublists(database_path)
+
+    # Create two dicts, one has the sublist as key and the cluster 
+    # number as value, the other has the cluster number as key and a set
+    # of all sublists as value
+    sublist_cluster_dict = dict.fromkeys(all_sublists, None) 
+    cluster_sublists_dict = dict()
+    cluster = 0
+
+    for i in range(len(all_sublists)):
+        # Check if the sublist is already in a cluster
+        if sublist_cluster_dict[all_sublists[i]] is None:
+
+            # search_queue contains sublists that haven't yet been used 
+            # to search for similar sublists
+            search_queue = set([all_sublists[i]])
+            # sublists_in_cluster contains all sublists that have been 
+            # already used to search for similar sublists
+            sublists_in_cluster = set()
+            
+            merge_cluster = set()
+            
+            while len(search_queue) > 0:
+                
+                # Find similar sublists (matched in a hit or oerlapping)
+                results = Parallel(n_jobs=threads) \
+                    (delayed(_find_similar_sublists) \
+                    (database_path, sublist) for sublist in search_queue)
+                similar_sublists = [sublist for r in results for sublist in r]
+
+                # update the sublists in cluster and reset queue
+                sublists_in_cluster.update(search_queue)
+                search_queue = set()
+
+                for sublist in similar_sublists:
+                    # sublist has been clustered before
+                    if sublist_cluster_dict[sublist] is not None:
+                        # get the cluster to merge
+                        merge_cluster.add(sublist_cluster_dict[sublist])
+                    # sublist has not been clustered before 
+                    elif sublist not in sublists_in_cluster:
+                        search_queue.add(sublist)
+
+            # Merge the cluster
+            for m_cstr in list(merge_cluster):
+                merge_sublists = cluster_sublists_dict.pop(m_cstr)
+                sublists_in_cluster.update(merge_sublists)
+                
+            # Add cluster to dicts
+            cluster_sublists_dict[cluster] = sublists_in_cluster
+            for sublist in sublists_in_cluster:
+                sublist_cluster_dict[sublist] = cluster
+
+            cluster += 1
+
     # Return a list of clustered hits
-    return sorted(list(cluster_to_hits.values()), key=len, reverse=True)
+    return sorted(list(cluster_sublists_dict.values()), key=len, reverse=True)
 
 
-def add_cluster_information_to_db(clustered_hits, conn):
-    """
-    """
-    with conn:
+def _add_clusterID_to_sublists_table(cluster_id, sublists, conn):
+    for sublist in sublists:
         with contextlib.closing(conn.cursor()) as c:
-
-            for i in range(len(clustered_hits)):
-                cluster_id = i+1
-                hit_ids_in_cluster = list(clustered_hits[i])
-
-                # max number of SQL variables (?) in one query is 999
-                for j in range(0, len(hit_ids_in_cluster), 990):
-                    hit_ids = hit_ids_in_cluster[j:j+900]
-                    sql =   """
-                            UPDATE hits
-                            SET clusterID = ?
-                            WHERE hitID in ({})
-                            """.format(','.join(['?']*len(hit_ids)))
-                    c.execute(sql, (cluster_id, *hit_ids))
+            # Add clusterID to table sublists
+            sql =   """
+                    UPDATE sublists
+                       SET clusterID = ?
+                     WHERE first_pfamID = ?
+                           AND last_pfamID = ?
+                    """
+            c.execute(sql, (cluster_id, sublist[1], sublist[2]))
 
 
-#------------------------------------------------------------------------------
-
-import pandas as pd
-
-def get_df_of_hitIDs_and_core_genome(conn):
-    """
-    """
-    sql = """
-            WITH distict_cds AS (
-            		SELECT DISTINCT hits.hitID, pfams.locus_tag, core_genome
-            		  FROM hits
-                INNER JOIN pfams ON pfams.pfamID BETWEEN ref_pfamID_start AND ref_pfamID_end
-            	INNER JOIN cds   ON pfams.locus_tag = cds.locus_tag
-            	)
-			  SELECT distict_cds.hitID, 
-            	     1.0 * SUM(CASE WHEN distict_cds.core_genome = '-' THEN 1 ELSE 0 END) / COUNT(*) AS core_genome_fraction
-			    FROM distict_cds
-            GROUP BY distict_cds.hitID
-          """
-    df = pd.read_sql(sql, conn)  
-    df["hitID"] = df["hitID"].map(str)
-    df = df.set_index("hitID")
-    return df
-
-def get_core_genome_indicator(hit_ids, core_genome_df):
-    """ """
-    core_genome_indicator = max(core_genome_df.loc[hit_ids, "core_genome_fraction"])
+def _get_core_genome_indicator(cluster_id, conn):
+    with contextlib.closing(conn.cursor()) as c:
+        sql = """
+            SELECT max(core_genome_fraction)
+            FROM sublists
+            WHERE clusterID = ?
+            """
+        c.execute(sql, [str(cluster_id)])
+        core_genome_indicator = c.fetchall()[0][0]
     return core_genome_indicator
+    
 
-def get_num_core_pfams_and_transporter_indicator(conn, hitIDs_in_cluster, transporter_pfams):
+def _get_antismash_indicator(cluster_id, conn):
+    with contextlib.closing(conn.cursor()) as c:
+        sql = """
+            SELECT max(antismash_fraction)
+            FROM sublists
+            WHERE clusterID = ?
+            """
+        c.execute(sql, [str(cluster_id)])
+        antismash_indicator = c.fetchall()[0][0]
+    return antismash_indicator
+
+
+def _get_transporter_indicator(cluster_id, sublists, conn):
     """
     """
-    # get the core pfams of cluster (pfam numbers that are present in each hit)
-    core_pfams = None
-    for i in range(0, len(hitIDs_in_cluster), 900):  # max number of SQL variables in one query is 999
-        hitIDs = hitIDs_in_cluster[i:i+900]
-        for host_type in ["ref", "query"]:
-            # hit_count specifies in how many sublists the pfam is present
-            sql = """
-                    WITH distict_pfam AS (
-                    SELECT DISTINCT hitID, pfamnumber
-                                		  FROM hits
-                                    INNER JOIN pfams ON pfams.pfamID BETWEEN {0}_pfamID_start AND {0}_pfamID_end
-                    				WHERE hitID IN ({1})
-                    				)
-                    SELECT pfamnumber, COUNT(*) AS hit_count
-                    FROM distict_pfam
-                    GROUP BY pfamnumber
-                    ORDER BY pfamnumber
-                  """.format(host_type, ",".join(hitIDs))
-            df = pd.read_sql(sql, conn)
-            core_pfams_chunk = set(df[df["hit_count"] == len(hitIDs)]["pfamnumber"]) # take only thos pfams that occured in all sublists
-            if core_pfams is None: 
-                core_pfams = core_pfams_chunk
-            else:
-                core_pfams = core_pfams.intersection(core_pfams_chunk)
-    # Check how many core_pfams are associated with transporter activity
-    if len(core_pfams) == 0:
-        fraction_transporter_pfams = 0
-    else:
-        fraction_transporter_pfams = len(core_pfams.intersection(transporter_pfams))/len(core_pfams)
-    return fraction_transporter_pfams, len(core_pfams)
+    with contextlib.closing(conn.cursor()) as c:
+        sql = """
+            WITH pfam_count AS (
+                SELECT pfam_num, transporter, 
+                       COUNT(DISTINCT sublists.ROWID) as cnt
+                  FROM sublists
+                       INNER JOIN pfams 
+                       ON pfamID BETWEEN first_pfamID AND last_pfamID
+                 WHERE clusterID = ?
+			     GROUP by pfam_num
+           		)
+            SELECT AVG(transporter), COUNT(*)
+            FROM pfam_count
+            WHERE cnt = ?
+            """
+        c.execute(sql, [cluster_id, len(sublists)])
+        transporter_ind, number_core_pfams = c.fetchall()[0]
+        if transporter_ind is None:
+            transporter_ind = 0
+        
+    return transporter_ind, number_core_pfams
+
+
+def _add_cluster_information(cluster_id, core_genome_ind, antismash_ind, 
+                             transporter_ind, number_core_pfams, conn):
+
+    with contextlib.closing(conn.cursor()) as c:
+        sql = '''
+            INSERT INTO cluster (clusterID, core_genome_indicator, 
+                                 antismash_indicator, transporter_indicator, 
+                                 number_core_pfams)
+                 VALUES (?, ?, ?, ?, ?)
+            '''
+        c.execute(sql, (cluster_id, round(core_genome_ind, 3), 
+                        round(antismash_ind, 3), round(transporter_ind, 3), 
+                        number_core_pfams))
+
+
+def add_cluster_to_db(clustered_sublists, database_path):
+    conn = sqlite3.connect(database_path)
+    # # Auto-roll back if a sql error occurs
+    # with conn:
+    for i in range(len(clustered_sublists)):
+        cluster_id = i+1
+        sublists = list(clustered_sublists[i])
+        _add_clusterID_to_sublists_table(cluster_id, sublists, conn)
+        conn.commit()
+        core_genome_ind = _get_core_genome_indicator(cluster_id, conn)
+        antismash_ind = _get_antismash_indicator(cluster_id, conn)
+        transporter_ind, number_core_pfams = _get_transporter_indicator(
+            cluster_id, sublists, conn)
+        _add_cluster_information(cluster_id, core_genome_ind, antismash_ind, transporter_ind, number_core_pfams, conn)
+    conn.close()

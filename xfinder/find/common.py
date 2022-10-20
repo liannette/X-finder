@@ -200,8 +200,10 @@ def _now():
 def print_stdout(msg):
     ''' Adds a timestamp to a string and prints it to stdout'''
     print("{}\t{}".format(_now(), msg))
+    sys.stdout.flush()
 
 
 def print_stderr(msg):
     ''' Adds a timestamp to a string and prints it to stderr'''
     print("{}\t{}".format(_now(), msg), file=sys.stderr)
+    sys.stdout.flush()

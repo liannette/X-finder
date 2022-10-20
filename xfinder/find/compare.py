@@ -13,9 +13,8 @@
 
 import sqlite3
 import contextlib
-import os.path
 import numpy as np
-from xfinder.find.common import get_database_dir, print_stderr
+from xfinder.find.common import print_stderr
 from joblib import Parallel, delayed
 import itertools
 import traceback
@@ -23,15 +22,13 @@ import traceback
 
 class Pfam:
 
-    def __init__(self, pfam_id, pfam_num, cds_locus_tag, start, end, strand, 
-                 antismash_core):
+    def __init__(self, pfam_id, pfam_num, cds_locus_tag, start, end, strand):
         self.pfam_id = pfam_id
         self.pfam_num = pfam_num
         self.cds_locus_tag = cds_locus_tag
         self.start = start  # 0-based
         self.end = end      # 0-based
         self.strand = strand
-        self.antismash_core = antismash_core
 
 
 class SeqRecord:
@@ -42,18 +39,18 @@ class SeqRecord:
 
     @classmethod
     def _from_db(cls, seq_acc, conn):
-        ''' Returns the genome pfam sequence of a sequence record '''
+        # Get the genome pfam sequence of a sequence record 
         with contextlib.closing(conn.cursor()) as c:
-            sql = ''' SELECT pfamID, pfam_num, locus_tag, pfam_start, pfam_end,
-                             strand, antismash_core
-                        FROM pfams 
-                       WHERE seq_acc=? '''
+            sql = ''' 
+                SELECT pfamID, pfam_num, locus_tag, pfam_start, pfam_end,
+                       strand
+                  FROM pfams 
+                 WHERE seq_accession=? 
+                 '''
             rows = c.execute(sql,(seq_acc,)).fetchall()
         return cls(acc=seq_acc, 
                    g_pfam_list=[Pfam(*row) for row in rows])
-                   
-    def _get_pfam_num_seq(self):
-        return [pfam.pfam_num for pfam in self.g_pfam_list]
+
 
 class HitParameters:
 
@@ -140,6 +137,23 @@ class Hit:
                        combined_direction)
         return combined
 
+    def _to_db_rows(self, query_seq_rec, ref_seq_rec):
+        query_row = [
+            "query", 
+            query_seq_rec.g_pfam_list[self.query_start].pfam_id,
+            query_seq_rec.g_pfam_list[self.query_end - 1].pfam_id,
+            self.query_antismash_ind,
+            self.query_core_genome_ind,
+        ]
+        ref_row = [
+            "ref",
+            ref_seq_rec.g_pfam_list[self.ref_start].pfam_id,
+            ref_seq_rec.g_pfam_list[self.ref_end - 1].pfam_id,
+            self.ref_antismash_ind,
+            self.ref_core_genome_ind,
+        ]
+        return (query_row, ref_row)
+
     def __repr__(self):
         rep = ("Hit(" 
                + ", ".join([self.query_start, self.query_end, self.ref_start,
@@ -159,7 +173,7 @@ def count_comparisons(conn):
     return num_comparisons
 
 
-def _get_host_ids(conn, host_type, max_l50):
+def get_host_ids(conn, host_type, max_l50):
     '''
     Gets the hostIDs for either query or reference hosts
     '''
@@ -170,69 +184,6 @@ def _get_host_ids(conn, host_type, max_l50):
         rows = c.execute(sql, (host_type, max_l50)).fetchall()
         hostIDs = [row[0] for row in rows]
     return hostIDs
-
-
-def get_host_comparison_pairs(conn, max_l50):
-    """
-    Returns a tuple containing:
-    - a list of all host comparisons pairs (query_hostID, ref_hostID) 
-    - the number of query hosts 
-    - the number of reference hosts.
-    """
-    ref_host_ids = _get_host_ids(conn, "ref", max_l50)
-    query_host_ids = _get_host_ids(conn, "query", max_l50)
-    host_pairs = list(itertools.product(query_host_ids, ref_host_ids))
-    return host_pairs, len(query_host_ids), len(ref_host_ids)
-
-
-def _temp_database_path(database_path, thread):
-    """ Gets the database path for a thread """
-    temp_db =  database_path.split('.')[-2] + '_temp' + str(thread) + '.db'
-    return os.path.join(get_database_dir(), temp_db)
-
-
-def _host_pairs_into_chunks(host_pairs, threads):
-    """
-    Splits a list of host comparison pairs into equally sized chunks, 
-    one for each thread. Return a enumerated list of chunks, so that 
-    the chunks can be assigned to a specific thread.
-    """
-    return list(enumerate(np.array_split(host_pairs, threads)))
-
-
-def _create_temporary_databases(database_path, threads):
-    '''
-    Create temporary databases to write the hits with multithreading. 
-    Sqlite does not allow concurrent database writes to the same database
-    The temporary databases will be merged later into the main one 
-    afterwards.
-    '''
-    for thread in range(threads):
-        temp_database_path = _temp_database_path(database_path, thread)
-        conn = sqlite3.connect(temp_database_path)
-        with conn:
-            with contextlib.closing(conn.cursor()) as c:
-                c.execute('''
-                    CREATE TABLE "hits" (
-                	    "query_seq_acc"	        TEXT NOT NULL,
-                	    "query_first_pfamID"    INTEGER NOT NULL,
-                	    "query_last_pfamID"	    INTEGER NOT NULL,
-                	    "ref_seq_acc"	        TEXT NOT NULL,
-                	    "ref_first_pfamID"	    INTEGER NOT NULL,
-                	    "ref_last_pfamID"	    INTEGER NOT NULL,
-                        PRIMARY KEY("query_first_pfamID", "ref_first_pfamID")
-                        )
-                        '''
-                )
-                c.execute('''
-                        CREATE TABLE "host_comparisons" (
-                            "query_hostID"	INTEGER NOT NULL,
-                            "ref_hostID"    INTEGER NOT NULL,
-                            PRIMARY KEY("query_hostID","ref_hostID")
-                        )
-                        '''
-                )            
-        conn.close()
 
 
 def _host_comparison_exists(conn, query_hostID, ref_hostID):
@@ -254,7 +205,7 @@ def _get_seq_records(conn, hostID):
     Returns all sequence accessions belonging to a specific hostID
     '''
     with contextlib.closing(conn.cursor()) as c:
-        sql = ''' SELECT seq_acc 
+        sql = ''' SELECT seq_accession 
                     FROM seq_records 
                    WHERE hostID=?'''
         rows = c.execute(sql,(hostID,)).fetchall()
@@ -478,153 +429,178 @@ def _filter_query_dna_length(query_g_pfam_list, hits, dna_length_threshold):
 def _find_hits(query_seq_rec, ref_seq_rec, hit_param):
     """
     """
-    query_seq = query_seq_rec._get_pfam_num_seq()
-    ref_seq = ref_seq_rec._get_pfam_num_seq()
+    query_pfamseq = [pfam.pfam_num for pfam in query_seq_rec.g_pfam_list] 
+    ref_pfamseq = [pfam.pfam_num for pfam in ref_seq_rec.g_pfam_list]
 
-    hits = _find_common_sublists(query_seq, ref_seq, hit_param.seed_size)
+    hits = _find_common_sublists(query_pfamseq, ref_pfamseq, 
+                                 hit_param.seed_size)
     hits = _completely_group_neighboring_hits(hits, hit_param.gap_threshold)
     hits = _filter_by_size(hits, hit_param.size_threshold)
-    hits = _remove_net_NRPS_PKS(hits, query_seq)
+    hits = _remove_net_NRPS_PKS(hits, query_pfamseq)
     hits = _filter_query_dna_length(query_seq_rec.g_pfam_list, 
                                    hits, hit_param.dna_length_threshold)
     return hits
+
+
+def _add_filter_information(hits, query_gpfam_list, ref_gpfam_list, conn):
+    # Fraction of pfams that were marked antismash core
+    sql_antismash = '''
+        SELECT AVG(antismash_core)
+          FROM pfams
+         WHERE pfamID >= ? AND pfamID <= ?
+        '''
+    # Fraction of cds that were marked as core genome
+    sql_coregenome = '''
+        WITH distict_cds AS (
+            SELECT DISTINCT cds.locus_tag, core_genome
+              FROM pfams
+            	   INNER JOIN cds ON pfams.locus_tag=cds.locus_tag
+             WHERE pfamID >= ? AND pfamID <= ?
+            )
+        SELECT AVG(core_genome)
+          FROM distict_cds
+         ''' 
+    with contextlib.closing(conn.cursor()) as c:
+        for hit in hits:
+            # For the query
+            query_first_pfamID = query_gpfam_list[hit.query_start].pfam_id
+            query_last_pfamID = query_gpfam_list[hit.query_end - 1].pfam_id
+            
+            c.execute(sql_antismash, (query_first_pfamID, query_last_pfamID))
+            antismash_ind = c.fetchall()[0][0]
+            hit.query_antismash_ind = round(antismash_ind, 3)
+            
+            c.execute(sql_coregenome, (query_first_pfamID, query_last_pfamID))
+            core_genome_ind = c.fetchall()[0][0]
+            hit.query_core_genome_ind = round(core_genome_ind, 3)
+
+            # for the reference
+            ref_first_pfamID = ref_gpfam_list[hit.ref_start].pfam_id
+            ref_last_pfamID = ref_gpfam_list[hit.ref_end - 1].pfam_id
+            
+            c.execute(sql_antismash, (ref_first_pfamID, ref_last_pfamID))
+            antismash_ind = c.fetchall()[0][0]
+            hit.ref_antismash_ind = round(antismash_ind, 3)
+            
+            c.execute(sql_coregenome, (ref_first_pfamID, ref_last_pfamID))
+            core_genome_ind = c.fetchall()[0][0]
+            hit.ref_core_genome_ind = round(core_genome_ind, 3)
+            
+    return hits
+
+
+def _find_hits_singlethread(query_hostID, query_seq_records, ref_hostID, 
+                            hit_param, database_path):
+    # Connect to databases
+    conn = sqlite3.connect(database_path)
+    # HostID can be in numpy.int64 format. Sqlite3 can only read
+    # numpy.int64 if it has been registered before
+    sqlite3.register_adapter(np.int64, lambda val: int(val))
+    
+    if _host_comparison_exists(conn, query_hostID, ref_hostID) is False:
+
+        # Get the seq records of the ref host
+        ref_seq_records = _get_seq_records(conn, ref_hostID)
+        
+        # Compare the two hosts with each other
+        all_hits = []
+        for q_seq_rec, r_seq_rec in itertools.product(query_seq_records, 
+                                                      ref_seq_records):
+            hits = _find_hits(q_seq_rec, r_seq_rec, hit_param)
+            hits = _add_filter_information(hits,
+                                           q_seq_rec.g_pfam_list, 
+                                           r_seq_rec.g_pfam_list,
+                                           conn)
+            all_hits.append((q_seq_rec, r_seq_rec, hits))
+
+        conn.close()
+        return {"hosts": (query_hostID, ref_hostID), "all_hits": all_hits}
+    else:
+        conn.close()
 
 
 def _write_hits_to_db(conn, hits, query_seq_rec, ref_seq_rec):
     '''
     Inserts the two sublists of the hit into the database.
     '''
-    query_g_pfam_list = query_seq_rec.g_pfam_list
-    ref_g_pfam_list = ref_seq_rec.g_pfam_list
-
-    hit_rows = list()
-    for hit in hits:
-        hit_rows.append([
-            query_seq_rec.seq_acc, 
-            query_g_pfam_list[hit.query_start].pfam_id,
-            query_g_pfam_list[hit.query_end - 1].pfam_id,
-            ref_seq_rec.seq_acc,
-            ref_g_pfam_list[hit.ref_start].pfam_id,
-            ref_g_pfam_list[hit.ref_end - 1].pfam_id
-            ])
-
     with contextlib.closing(conn.cursor()) as c:
-        sql = ''' INSERT INTO hits (query_seq_acc, 
-                                    query_first_pfamID,
-                                    query_last_pfamID, 
-                                    ref_seq_acc, 
-                                    ref_first_pfamID, 
-                                    ref_last_pfamID) 
-                       VALUES (?, ?, ?, ?, ?, ?) '''
-        c.executemany(sql, hit_rows)
+        for hit in hits:
+            query_row, ref_row = hit._to_db_rows(query_seq_rec, ref_seq_rec)
+            sql = '''
+                INSERT OR IGNORE INTO sublists (host_type, 
+                                                first_pfamID, 
+                                                last_pfamID, 
+                                                antismash_fraction,
+                                                core_genome_fraction)
+                               VALUES (?, ?, ?, ?, ?) 
+                '''
+            c.execute(sql, query_row)
+            c.execute(sql, ref_row)
+
+            sql = ''' 
+                INSERT INTO hits (query_first_pfamID,
+                                  query_last_pfamID, 
+                                  ref_first_pfamID, 
+                                  ref_last_pfamID) 
+                    VALUES (?, ?, ?, ?) 
+                '''
+            c.execute(sql, query_row[1:3] + ref_row[1:3])
 
 
 def _write_host_comparison_to_db(conn, query_hostID, ref_hostID):
-    with conn:
-        c = conn.cursor()
-        sql = ''' INSERT INTO host_comparisons (query_hostID, ref_hostID) 
-                       VALUES (?, ?) '''
-        c.execute(sql,(query_hostID, ref_hostID))
-        c.close()
-
-
-def _find_hits_singlethread(host_pairs, hit_param, read_database,
-                            write_database):
-    """
-    """
-    # Connect to databases
-    conn_read = sqlite3.connect(read_database)
-    conn_write = sqlite3.connect(write_database)
-    sqlite3.register_adapter(np.int64, lambda val: int(val))
-    # HostID can be in numpy.int64 format. Sqlite3 can only read
-    # numpy.int64 if it has been registered before
+    c = conn.cursor()
+    sql = ''' INSERT INTO host_comparisons (query_hostID, ref_hostID) 
+                   VALUES (?, ?) '''
+    c.execute(sql,(query_hostID, ref_hostID))
+    c.close()
     
-    previous_query_hostID = None
-    previous_ref_hostID = None
-    for query_hostID, ref_hostID in host_pairs:
-        if _host_comparison_exists(conn_read, query_hostID, ref_hostID) \
-            is False:
 
-            # Get the seq records of each host
-            if query_hostID != previous_query_hostID:
-                query_seq_records = _get_seq_records(conn_read, query_hostID)
-                previous_query_hostID = query_hostID
-            if ref_hostID != previous_ref_hostID:
-                ref_seq_records = _get_seq_records(conn_read, ref_hostID)
-                previous_ref_hostID = ref_hostID
-            # In many/most cases the query_hostID stays the same. We
-            # do the same for the ref just in case the code changes in 
-            # future
-
-            # There might be more than one seq record per file
-            seq_record_pairs = itertools.product(query_seq_records, 
-                                                 ref_seq_records)
-            # Compare the two hosts with each other
-            with conn_write:
-                for query_seq_rec, ref_seq_rec in seq_record_pairs:
-                    hits = _find_hits(query_seq_rec, ref_seq_rec, hit_param)           
-                    _write_hits_to_db(conn_write, hits, query_seq_rec, 
-                                      ref_seq_rec)
-                _write_host_comparison_to_db(conn_write, query_hostID, 
-                                             ref_hostID)
-
-    conn_read.close()
-    conn_write.close()
-
-
-def _combine_databases(main_database, temp_database):
-    '''
-    '''
-    conn = sqlite3.connect(main_database)
-    with conn:
-        with contextlib.closing(conn.cursor()) as c:
-            c = conn.cursor()
-            c.execute(''' ATTACH DATABASE ? AS temp_db ''', (temp_database,))  
-            c.execute('''
-                INSERT OR IGNORE INTO hits (query_seq_acc, 
-                                            query_first_pfamID, 
-                                            query_last_pfamID, 
-                                            ref_seq_acc, 
-                                            ref_first_pfamID, 
-                                            ref_last_pfamID)
-                               SELECT query_seq_acc, 
-                                      query_first_pfamID,
-                                      query_last_pfamID,
-                                      ref_seq_acc,
-                                      ref_first_pfamID,
-                                      ref_last_pfamID
-                                 FROM temp_db.hits
-                ''')  
-            c.execute('''
-                INSERT OR IGNORE INTO host_comparisons (query_hostID, 
-                                                        ref_hostID)
-                               SELECT query_hostID, 
-                                      ref_hostID
-                                 FROM temp_db.host_comparisons
-                ''')
-            c.execute(''' COMMIT ''')
-            c.execute(''' DETACH DATABASE temp_db ''')  
-
-
-
-def find_hits_multithread(host_pairs, hit_param, database_path, threads):
-    """
-    """
+def find_hits_multithread(query_hostIDs, ref_hostIDs, hit_param, database_path,
+                          threads):
     try:
-        _create_temporary_databases(database_path, threads)
-        host_pair_chunks = _host_pairs_into_chunks(host_pairs, threads)
-        Parallel(n_jobs=threads)(delayed(_find_hits_singlethread) \
-            (host_pairs, hit_param, database_path, 
-            _temp_database_path(database_path, thread)) \
-                for thread, host_pairs in host_pair_chunks)
-        for thread, _ in host_pair_chunks:
-            temp_database_path = _temp_database_path(database_path, thread)
-            _combine_databases(database_path, temp_database_path)
-    
-    except Exception:
+        conn = sqlite3.connect(database_path)
+        # HostID can be in numpy.int64 format. Sqlite3 can only read
+        # numpy.int64 if it has been registered before
+        sqlite3.register_adapter(np.int64, lambda val: int(val))
+
+        for query_hostID in query_hostIDs:
+            query_seq_records = _get_seq_records(conn, query_hostID)
+            
+            # split ref hosts into chunks, so mem usage wont go crazy
+            chunksize = 20
+            for i in range(0, len(ref_hostIDs), chunksize):
+                ref_hostIDs_chunk = ref_hostIDs[i:i + chunksize]
+
+                results = Parallel(n_jobs=threads)(
+                    delayed(_find_hits_singlethread)(
+                        query_hostID,
+                        query_seq_records, 
+                        ref_hostID, 
+                        hit_param, 
+                        database_path
+                        ) for ref_hostID in ref_hostIDs_chunk
+                    )
+
+                # For each thread
+                for result in results:
+                    # If the comparison already existed, result is None
+                    if result is not None:
+                        # roll back automatically if an sql error occurs
+                        with conn:
+                            query_hostID, ref_hostID = result["hosts"]
+                            _write_host_comparison_to_db(
+                                conn, 
+                                query_hostID, 
+                                ref_hostID
+                                )
+                            # For each combination of sequence records
+                            for q_sr, r_sr, hits in result["all_hits"]:
+                                _write_hits_to_db(
+                                    conn, 
+                                    hits, 
+                                    q_sr, 
+                                    r_sr
+                                    )
+
+    except:
         print_stderr(traceback.format_exc())
-    
-    finally:
-        for thread in range(threads):
-            temp_database_path = _temp_database_path(database_path, thread)
-            os.remove(temp_database_path) 

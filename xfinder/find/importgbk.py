@@ -261,19 +261,19 @@ def _records_to_db(conn, records, host_type, gbk_file):
         hostID = _host_to_db(conn, records, host_type, gbk_file)
         with contextlib.closing(conn.cursor()) as c:
             for rec in records:
-                sql = ''' INSERT INTO seq_records (hostID, seq_acc, 
+                sql = ''' INSERT INTO seq_records (hostID, seq_accession, 
                                                    description, seq_length)
                                VALUES (?,?,?,?) '''
                 c.execute(sql, (hostID, rec.seq_acc, rec.description, 
                                 rec.seq_length))
-                sql = ''' INSERT INTO cds (seq_acc, locus_tag, product,
+                sql = ''' INSERT INTO cds (seq_accession, locus_tag, product,
                                         translation, cds_start, cds_end)
                                VALUES (?,?,?,?,?,?) '''
                 c.executemany(sql, [[rec.seq_acc] + cds._to_list() 
                                     for cds in rec.cds_list])
-                sql = ''' INSERT INTO pfams (seq_acc, locus_tag, pfam_num,
-                                             pfam_start, pfam_end, strand, 
-                                             antismash_core) 
+                sql = ''' INSERT INTO pfams (seq_accession, locus_tag, 
+                                             pfam_num, pfam_start, pfam_end, 
+                                             strand, antismash_core) 
                                VALUES (?,?,?,?,?,?,?) '''
                 c.executemany(sql, [[rec.seq_acc] + pfam._to_list() 
                                 for pfam in rec.g_pfam_list])

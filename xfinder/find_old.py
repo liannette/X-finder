@@ -7,7 +7,6 @@ import xfinder.find.coregen
 import xfinder.find.transp
 import xfinder.find.compare
 import xfinder.find.cluster
-import xfinder.find.results
 from xfinder.find.common import get_git_root, get_database_dir, print_stdout, \
                                 print_stderr
 
@@ -66,8 +65,6 @@ def coregen(database_path, core_genome_path):
         trans_fasta = os.path.join(temp_dir, "translations.fasta")
         diamond_db = os.path.join(temp_dir, "core_genome.dmnd")
         result_file = os.path.join(temp_dir, "diamond_out.tsv")
-
-        #Rewrite this so das cds_list is not nesseccary!
 
         # Write a fasta file with all cds translations
         cds_list = xfinder.find.coregen.cds_translations_to_fasta(
@@ -171,65 +168,51 @@ def cluster(threads, database_path):
         )
 
 
-def results(core_genome_cutoff, antismash_cutoff, transporter_cutoff, out_dir, 
+def results(core_genome_cutoff, antismash_cutoff, transporter_cutoff, outdir, 
             database_path):
-    cluster_list = xfinder.find.results.get_filtered_cluster(
+    cluster = xfinder.find.results.get_filtered_cluster(
         core_genome_cutoff, 
         antismash_cutoff, 
         transporter_cutoff, 
         database_path
         )
     print_stdout("Printing results. {} cluster fullfill the cutoff criteria "
-                 "(core genome: {}, antismash: {}, transporter: {})".format(
-                     len(cluster_list), 
+                 "(core genome: {}, antismash: {}, transporter: {})").format(
+                     len(cluster), 
                      core_genome_cutoff, 
                      antismash_cutoff, 
                      transporter_cutoff
-                 ))
-                 
-    writer, workbook = xfinder.find.results.create_xlsx_writer(out_dir)
-    core_genome_format = workbook.add_format({'underline': True})
-    antismash_format = workbook.add_format({'bold': True})
+                 )
     
-    summary_results, detailed_results = xfinder.find.results.get_results(
-        cluster_list, database_path, core_genome_format, antismash_format
-        )
-    
-    xfinder.find.results.write_detailed_results(detailed_results, writer, 
-                                                workbook)
-    
-    xfinder.find.results.write_summary_file(
-        summary_results, database_path, core_genome_cutoff, antismash_cutoff, 
-        transporter_cutoff, out_dir
-        )
     
 
 #############################################################################
 
-# remove transporterfraction for sublists. Its not used.
-
 def main():
     
-    out_dir = "/data/s202633/X-finder_outputs/photorhabdus_xenorhabdus"
+    out_dir = "/data/s202633/X-finder/outputs/"
     database = "photorhabdus_xenorhabdus.db"
-    database_path = os.path.join(out_dir, database)
+    database_path = os.path.join(get_database_dir(), database)
     
-    genomes_dir = "/data/s202633/X-finder_inputs/genomes"
-    ref_genome_dirs = [
-        os.path.join(genomes_dir, "streptomyces_internal"), 
-        os.path.join(genomes_dir, "actinobacteria_internal"), 
-        ]    
-    query_genome_dirs = [
-        os.path.join(genomes_dir, "photorhabdus"),
-        os.path.join(genomes_dir, "xenorhabdus"),
-        ]    
-    
-    # out_dir = "/data/s202633/X-finder_outputs/test"
-    # database = "test_db.db"
-    # database_path = os.path.join(out_dir, database)
     # genomes_dir = "/data/s202633/X-finder_inputs/genomes"
-    # ref_genome_dirs = [os.path.join(genomes_dir, "ref_genomes"),]
-    # query_genome_dirs = [os.path.join(genomes_dir, "query_genomes"),]  
+    # ref_genome_dirs = [
+    #     os.path.join(genomes_dir, "streptomyces_internal"), 
+    #     os.path.join(genomes_dir, "actinobacteria_internal"), 
+    #     ]    
+    # query_genome_dirs = [
+    #     os.path.join(genomes_dir, "photorhabdus"),
+    #     os.path.join(genomes_dir, "xenorhabdus"),
+    #     ]    
+    
+    
+    # database = "test_db.db"
+    # database_path = os.path.join(get_database_dir(), database)
+    # ref_genome_dirs = [
+    #     os.path.join(get_git_root(), "data", "genomes", "ref_genomes"),
+    #     ]
+    # query_genome_dirs = [
+    #     os.path.join(get_git_root(), "data", "genomes", "query_genomes"),
+    #     ]  
 
 
     # # Create db
@@ -267,7 +250,7 @@ def main():
     # print results
     core_genome_cutoff = 0.5
     transporter_cutoff = 0.2
-    antismash_cutoff = 0.5
+    antismash_cutoff = 1.0
     results(core_genome_cutoff, antismash_cutoff, transporter_cutoff, out_dir, 
             database_path)
 
