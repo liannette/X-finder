@@ -466,6 +466,7 @@ def get_results(cluster_list, database_path, core_genome_format,
                 antismash_indicator,
                 transporter_indicator, 
                 number_core_pfams,
+                sublist.id,
                 sublist.host_type, 
                 sublist.organism, 
                 sublist.file, 
@@ -490,13 +491,14 @@ def get_results(cluster_list, database_path, core_genome_format,
 def write_detailed_results(detailed_results, writer, workbook):
     
     # Write detailed results to a tsv file
-    detailed_results = pd.DataFrame(detailed_results, columns = [
+    cols = [
         'clusterID', 
         'number of sublists', 
         'core genome indicator', 
         'antismash indicator',
         'transporter indicator', 
         'number of core pfams', 
+        'sublist id',
         'host type', 
         'organism', 
         'file', 
@@ -507,15 +509,23 @@ def write_detailed_results(detailed_results, writer, workbook):
         'CDS products set', 
         'CDS products sequence', 
         'upstream CDS products', 
-        'downstream CDS products'
-        ])
+        'downstream CDS products',
+        ]
+    detailed_results = pd.DataFrame(detailed_results, columns = cols)
     detailed_results.to_excel(writer, sheet_name='Sheet1', index=False)
-    
     worksheet = writer.sheets['Sheet1']
-    worksheet.set_column(10, 10, 40)
-    worksheet.set_column(13, 17, 60)
+    
+    # Add autofilter function
     worksheet.autofilter(0, 0, len(detailed_results), 
                          len(detailed_results.columns) - 1)
+    
+    # set column width 
+    worksheet.set_column(first_col=cols.index('sequence description'), 
+                         last_col =cols.index('sequence description'), 
+                         width=40)
+    worksheet.set_column(first_col=cols.index('CDS products set'), 
+                         last_col =cols.index('downstream CDS products'), 
+                         width=60)
     
     # bg color for ref hosts
     bg_color = "#b2d4b9"
@@ -524,26 +534,37 @@ def write_detailed_results(detailed_results, writer, workbook):
         {'border': 1, 'bg_color': bg_color, 'border_color': border_color})
     
     for row_idx in range(0, len(detailed_results)):
-        
+        row_num = row_idx + 1, # worksheet is 1 index based
         # fill cells of ref host rows
         if detailed_results.iloc[row_idx, 6] == "ref":
             worksheet.set_row(
-                row = row_idx + 1, # worksheet is 1 index based
-                height = None, 
-                cell_format = ref_row_format)
+                row=row_num,
+                height=None, 
+                cell_format=ref_row_format)
             # format for cds cells
             cds_cells_format = workbook.add_format(
-                {'border': 1, 'text_wrap': True, 'border_color': border_color, 
-                 'bg_color': bg_color,}
+                {
+                    'border': 1, 
+                    'text_wrap': True, 
+                    'border_color': border_color, 
+                    'bg_color': bg_color,
+                 }
                 )
         else:
             # format for cds cells
             cds_cells_format = workbook.add_format(
-                {'border': 1, 'text_wrap': True, 'border_color': border_color}
+                {
+                    'border': 1, 
+                    'text_wrap': True, 
+                    'border_color': border_color}
                 )
 
-        # underline and bold format in cds
-        for col_idx in [13, 14, 15, 16]:
+        # write the CDS as rich strings $$$
+        cds_indeces = range(
+            cols.index('CDS products sequence'),
+            cols.index('downstream CDS products')+1
+            )
+        for col_idx in cds_indeces:
             cds = detailed_results.iloc[row_idx, col_idx]
             # write_rich_string() needs at least 3 fragments/formats
             if len(cds) >= 3: 
@@ -560,7 +581,6 @@ def write_detailed_results(detailed_results, writer, workbook):
             # only one cds with underline
             elif len(cds) == 2:
                 cds_cells_format.set_underline()
-                # comment: is the underline added? does not look like it
                 worksheet.write_string(row_idx+1, col_idx, cds[1], 
                                        cds_cells_format)
 
