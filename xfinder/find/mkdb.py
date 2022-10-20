@@ -164,8 +164,7 @@ def add_database_indeces(conn):
         # Used in results.py
         c.execute(''' 
                 CREATE INDEX idx_cluster_indicators
-                ON cluster (core_genome_indicator, 
-                            antismash_indicator, 
+                ON cluster (max_core_genome_fraction, 
                             transporter_indicator
                             ) 
                 ''')
