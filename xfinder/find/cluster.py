@@ -207,7 +207,7 @@ def _add_cluster_information(cluster_id, max_core_genome_fraction,
                                  max_antismash_fraction,
                                  transporter_indicator, 
                                  number_core_pfams)
-                 VALUES (?, ?, ?, ?, ?)
+                 VALUES (?, ?, ?, ?, ?, ?)
             '''
         c.execute(sql, (cluster_id, 
                         max_core_genome_fraction,

@@ -197,13 +197,19 @@ def _now():
     return datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
 
-def print_stdout(msg):
+def print_stdout(msg, out_dir=None):
     ''' Adds a timestamp to a string and prints it to stdout'''
-    print("{}\t{}".format(_now(), msg))
+    print(f"{_now()}\t{msg}")
+    if out_dir is not None:
+        with open(os.path.join(out_dir, "stdout.txt"), "a") as outfile:
+            print(f"{_now()}\t{msg}", file=outfile)
     sys.stdout.flush()
 
 
-def print_stderr(msg):
+def print_stderr(msg, out_dir=None):
     ''' Adds a timestamp to a string and prints it to stderr'''
-    print("{}\t{}".format(_now(), msg), file=sys.stderr)
+    print(f"{_now()}\t{msg}", file=sys.stderr)
+    if out_dir is not None:
+        with open(os.path.join(out_dir, "stderr.txt"), "a") as outfile:
+            print(f"{_now()}\t{msg}", file=outfile)
     sys.stdout.flush()

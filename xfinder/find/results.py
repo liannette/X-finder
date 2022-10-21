@@ -426,14 +426,14 @@ def _print_cluster_to_summary_results(entry, outfile):
     print("", file=outfile)
 
 
-def create_xlsx_writer(out_dir):
+def _create_xlsx_writer(out_dir):
     detailed_results_path = os.path.join(out_dir, "results_detailed.xlsx")
     writer = pd.ExcelWriter(detailed_results_path, engine='xlsxwriter')
     workbook  = writer.book
     return writer, workbook
 
 
-def get_results(cluster_list, database_path, core_genome_format, 
+def _get_results(cluster_list, database_path, core_genome_format, 
                 antismash_format):
 
     conn = sqlite3.connect(database_path)
@@ -498,7 +498,7 @@ def get_results(cluster_list, database_path, core_genome_format,
     return summary_results, detailed_results
 
 
-def write_detailed_results(detailed_results, writer, workbook):
+def _write_detailed_results(detailed_results, writer, workbook):
     
     # Write detailed results to a tsv file
     cols = [
@@ -545,9 +545,9 @@ def write_detailed_results(detailed_results, writer, workbook):
         {'border': 1, 'bg_color': bg_color, 'border_color': border_color})
     
     for row_idx in range(0, len(detailed_results)):
-        row_num = row_idx + 1, # worksheet is 1 index based
+        row_num = row_idx + 1 # worksheet is 1 index based
         # fill cells of ref host rows
-        if detailed_results.iloc[row_idx, 6] == "ref":
+        if detailed_results.iloc[row_idx, cols.index('host type')] == "ref":
             worksheet.set_row(
                 row=row_num,
                 height=None, 
@@ -572,7 +572,7 @@ def write_detailed_results(detailed_results, writer, workbook):
 
         # write the CDS as rich strings $$$
         cds_indeces = range(
-            cols.index('CDS products sequence'),
+            cols.index('CDS products set'),
             cols.index('downstream CDS products')+1
             )
         for col_idx in cds_indeces:
@@ -598,7 +598,7 @@ def write_detailed_results(detailed_results, writer, workbook):
     workbook.close()
 
 
-def write_summary_file(summary_results, database_path, core_genome_cutoff, 
+def _write_summary_file(summary_results, database_path, core_genome_cutoff, 
                        transporter_cutoff, out_dir):
 
     # Write summary results to txt file
@@ -612,3 +612,32 @@ def write_summary_file(summary_results, database_path, core_genome_cutoff,
             )
         for entry in summary_results:
             _print_cluster_to_summary_results(entry, outfile_summary)
+
+
+def write_result_files(cluster_list, database_path, core_genome_cutoff,
+                       transporter_cutoff, out_dir):
+    
+    # Need to create the workbook and formats for generating the results
+    writer, workbook = _create_xlsx_writer(out_dir)
+    core_genome_format = workbook.add_format({'underline': True})
+    antismash_format = workbook.add_format({'bold': True})
+    
+    summary_results, detailed_results = _get_results(
+        cluster_list, 
+        database_path, 
+        core_genome_format, 
+        antismash_format
+        )
+    
+    _write_detailed_results(
+        detailed_results, 
+        writer, 
+        workbook
+        )
+    _write_summary_file(
+        summary_results, 
+        database_path, 
+        core_genome_cutoff, 
+        transporter_cutoff,
+        out_dir
+        )

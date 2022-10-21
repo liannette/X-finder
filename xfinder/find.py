@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import tempfile
+import traceback
 import xfinder.find.mkdb
 import xfinder.find.importgbk
 import xfinder.find.coregen
@@ -8,58 +9,54 @@ import xfinder.find.transp
 import xfinder.find.compare
 import xfinder.find.cluster
 import xfinder.find.results
-from xfinder.find.common import get_git_root, get_database_dir, print_stdout, \
-                                print_stderr
+from xfinder.find.common import get_git_root, print_stdout, print_stderr
 
 
-def make_database(database_path):
+def make_database(database_path, out_dir):
     ''' Creates the database and the tables '''
 
     if os.path.exists(database_path):
         os.remove(database_path)
         print_stdout("Already existing database with the same name has been " 
-                     "deleted.")
+                     "deleted.", out_dir)
     
     conn = sqlite3.connect(database_path)
     xfinder.find.mkdb.create_database_tables(conn)
     xfinder.find.mkdb.add_database_indeces(conn)
-    print_stdout("New database created.")
+    print_stdout("New database created.", out_dir)
 
 
 
-def import_genomes_to_database(database_path, host_type, genome_dirs):
+def import_genomes_to_database(database_path, host_type, genome_dirs, out_dir):
     ''' module importgbk '''
 
     gbk_files = xfinder.find.importgbk.list_of_gbk_files(genome_dirs)
-    print_stdout("Importing {} genbank files ({}) into the database."
-              "".format(len(gbk_files), host_type))
+    print_stdout(f"Importing {len(gbk_files)} genbank files ({host_type}) "
+                 "into the database.", out_dir)
 
     not_imported_files = list()
     conn = sqlite3.connect(database_path)
     for i in range(len(gbk_files)):
-
-        flag = xfinder.find.importgbk.gbk_file_to_db(conn, gbk_files[i], 
+        success = xfinder.find.importgbk.gbk_file_to_db(conn, gbk_files[i], 
                                                      host_type)
-        if flag is False:
-            print_stdout("File was not imported into the database: {}"
-                         "".format(gbk_files[i]))
+        if success is False:
+            print_stdout("File was not imported into the database: "
+                         f"{gbk_files[i]}", out_dir)
             not_imported_files.append(gbk_files[i])
-
         if xfinder.find.importgbk.print_import_progress(i+1, len(gbk_files)):
-            print_stdout("{}/{} files done".format(i+1, len(gbk_files)))
-
+            print_stdout("{}/{} files done".format(i+1, len(gbk_files)), 
+                         out_dir)
     conn.close()
 
-    outfile = os.path.join(get_git_root(), "outputs",
-                           "not_imported_gbk_files.txt")
-    xfinder.find.importgbk.not_imported_to_file(not_imported_files, outfile)
+    xfinder.find.importgbk.not_imported_to_file(
+        not_imported_files, 
+        outfile_path=os.path.join(out_dir, "not_imported_gbk_files.txt"))
 
 
-def coregen(database_path, core_genome_path):
+def coregen(database_path, core_genome_path, out_dir):
 
-    print_stdout("Adding core genome information. Core genome file: {}".format(
-        core_genome_path
-    ))
+    print_stdout("Adding core genome information. Core genome file: "
+                 f"{core_genome_path}", out_dir)
 
     with tempfile.TemporaryDirectory() as temp_dir:
         
@@ -82,15 +79,15 @@ def coregen(database_path, core_genome_path):
         num_core_cds = xfinder.find.coregen.add_core_genome_information(
             database_path, result_file, cds_list)
     
-    print_stdout("Inserted core genome information into database. {} of {} " 
-                 "CDS translations aligned to the core genome with >90% "
-                 "identity".format(num_core_cds, len(cds_list)))
+    print_stdout("Inserted core genome information into database. "
+                 f"{num_core_cds}/{len(cds_list)} CDS translations aligned " 
+                 "to the core genome with >90% identity", out_dir)
 
 
-def transp(database_path, transporter_pfams_path):
+def transp(database_path, transporter_pfams_path, out_dir):
 
-    print_stdout("Adding transporter PFAM information. Core genome "
-                 "file: {}".format(transporter_pfams_path))
+    print_stdout("Adding transporter PFAM information. Core genome file: "
+                 f"{transporter_pfams_path}", out_dir)
     transporter_pfams = xfinder.find.transp.get_transporter_pfams(
         transporter_pfams_path)
     xfinder.find.transp.add_transporter_pfam_information(
@@ -98,7 +95,7 @@ def transp(database_path, transporter_pfams_path):
 
 
 def compare(seed_size, gap_threshold, size_threshold, DNA_length_threshold, 
-            threads, max_l50, database_path):
+            threads, max_l50, database_path, out_dir):
     """ module compare """
 
     conn = sqlite3.connect(database_path)
@@ -121,13 +118,10 @@ def compare(seed_size, gap_threshold, size_threshold, DNA_length_threshold,
     conn.close()
     
     print_stdout(
-        "Comparing {} query hosts and {} reference hosts, which amounts to {} "
-        "comparisions.".format(
-            len(query_hostIDs), 
-            len(ref_hostIDs), 
-            len(query_hostIDs)*len(ref_hostIDs),
-            )
-        )
+        f"Comparing {len(query_hostIDs)} query hosts and {len(ref_hostIDs)} "
+        "reference hosts, which amounts to  "
+        f"{len(query_hostIDs)*len(ref_hostIDs)} comparisions.", out_dir)
+
 
     # Put the hit parameter in a nice class
     hit_parameters = xfinder.find.compare.HitParameters(
@@ -151,64 +145,83 @@ def compare(seed_size, gap_threshold, size_threshold, DNA_length_threshold,
     comparison_count_new = xfinder.find.compare.count_comparisons(conn) \
                            - num_comparisons_start
     conn.close()
-    print_stdout(
-        "{} new comparisons have been added to the database.".format(
-            comparison_count_new
-            )
-        )
+    print_stdout(f"{comparison_count_new} new comparisons have been added to "
+                 "the database.", out_dir)
 
 
-def cluster(threads, database_path):
-    print_stdout("Grouping similar hits into clusters")
+def cluster(threads, database_path, out_dir):
+    print_stdout("Grouping similar hits into clusters", out_dir)
     clustered_sublists = xfinder.find.cluster.cluster_hits(
         threads, 
         database_path
         )
-    print_stdout("{} cluster found in total".format(len(clustered_sublists)))
+    print_stdout(f"{len(clustered_sublists)} cluster found in total", out_dir)
     xfinder.find.cluster.add_cluster_to_db(
         clustered_sublists, 
         database_path
         )
 
 
-def results(core_genome_cutoff, transporter_cutoff, out_dir, 
-            database_path):
+def results(core_genome_cutoff, transporter_cutoff, database_path, out_dir):
+    
     cluster_list = xfinder.find.results.get_filtered_cluster(
         core_genome_cutoff, 
         transporter_cutoff, 
         database_path
         )
-    print_stdout("Printing results. {} cluster fullfill the cutoff criteria "
-                 "(core genome: {}, transporter: {})".format(
-                     len(cluster_list), 
-                     core_genome_cutoff, 
-                     transporter_cutoff
-                 ))
+    
+    print_stdout(f"Printing results. {len(cluster_list)} cluster fullfill the "
+                 f"cutoff criteria (core genome: {core_genome_cutoff}, "
+                 f"transporter: {transporter_cutoff})", out_dir)
                  
-    writer, workbook = xfinder.find.results.create_xlsx_writer(out_dir)
-    core_genome_format = workbook.add_format({'underline': True})
-    antismash_format = workbook.add_format({'bold': True})
-    
-    summary_results, detailed_results = xfinder.find.results.get_results(
-        cluster_list, database_path, core_genome_format, antismash_format
+    xfinder.find.results.write_result_files(
+        cluster_list, 
+        database_path, 
+        core_genome_cutoff,
+        transporter_cutoff, 
+        out_dir
         )
+
+
+def run_xfinder(database_path, ref_genome_dirs, query_genome_dirs, 
+                core_genome_path, transporter_pfams_path, seed_size, 
+                gap_threshold, size_threshold, DNA_length_threshold, max_l50,
+                threads, core_genome_cutoff, transporter_cutoff, out_dir):
     
-    xfinder.find.results.write_detailed_results(detailed_results, writer, 
-                                                workbook)
+    # add something about removing the output dir or changing it if it 
+    # already exists
     
-    xfinder.find.results.write_summary_file(
-        summary_results, database_path, core_genome_cutoff, transporter_cutoff,
-        out_dir)
-    
+    # # Create db
+    # make_database(database_path, out_dir)
+
+    # # Import genomes
+    # # I need to add a check that the directories indeed exist
+    # import_genomes_to_database(database_path, "ref", ref_genome_dirs, out_dir)
+    # import_genomes_to_database(database_path, "query", query_genome_dirs, out_dir)
+
+    # # Add core genome and transporter pfam information
+    # coregen(database_path, core_genome_path, out_dir)
+    # transp(database_path, transporter_pfams_path, out_dir)
+
+    # # find hits
+    # compare(seed_size, gap_threshold, size_threshold, DNA_length_threshold, 
+    #             threads, max_l50, database_path, out_dir)
+    # cluster hits
+    # cluster(threads, database_path, out_dir)
+
+    # print results
+    results(core_genome_cutoff, transporter_cutoff, database_path, out_dir)
+
+
 
 #############################################################################
 
-# remove transporterfraction for sublists. Its not used.
 
 def main():
     
     out_dir = "/data/s202633/X-finder_outputs/photorhabdus_xenorhabdus"
     database = "photorhabdus_xenorhabdus.db"
+    
     database_path = os.path.join(out_dir, database)
     
     genomes_dir = "/data/s202633/X-finder_inputs/genomes"
@@ -220,7 +233,7 @@ def main():
         os.path.join(genomes_dir, "photorhabdus"),
         os.path.join(genomes_dir, "xenorhabdus"),
         ]    
-    
+
     # out_dir = "/data/s202633/X-finder_outputs/test"
     # database = "test_db.db"
     # database_path = os.path.join(out_dir, database)
@@ -229,46 +242,35 @@ def main():
     # query_genome_dirs = [os.path.join(genomes_dir, "query_genomes"),]  
 
 
-    # Create db
-    make_database(database_path)
-
-    # Import genomes
-    # I need to add a check that the directories indeed exist
-    import_genomes_to_database(database_path, "ref", ref_genome_dirs)
-    import_genomes_to_database(database_path, "query", query_genome_dirs)
-
-    # Add core genome information
     core_genome_path = os.path.join(get_git_root(), "data", "core genome", 
                                     "Streptomyces.fasta") 
-    coregen(database_path, core_genome_path)
-    # Add transporter pfam information
+
     transporter_pfams_path = os.path.join(get_git_root(), "data",
                              "transporter pfams", "all_transporter_pfams.txt")
-    transp(database_path, transporter_pfams_path)
 
-    # Run comparison to find hits
     seed_size = 2
     gap_threshold = 2
     size_threshold = 6
     DNA_length_threshold = 7000
     threads = 8
     max_l50 = 3
-    compare(seed_size, gap_threshold, size_threshold, DNA_length_threshold, 
-                threads, max_l50, database_path)
+    
+    core_genome_cutoff = 0.5
+    transporter_cutoff = 0.2
 
-    # # cluster hits
-    # threads = 8
-    # cluster(threads, database_path)
+    try:
+        run_xfinder(
+            database_path, ref_genome_dirs, query_genome_dirs, 
+            core_genome_path, transporter_pfams_path, seed_size, 
+            gap_threshold, size_threshold, DNA_length_threshold, max_l50,
+            threads, core_genome_cutoff, transporter_cutoff, out_dir)
+    except:
+        print_stderr(traceback.format_exc(), out_dir)
 
-    # # print results
-    # core_genome_cutoff = 0.5
-    # transporter_cutoff = 0.2
-    # results(core_genome_cutoff, transporter_cutoff, out_dir, 
-    #         database_path)
 
 if __name__ == "__main__":
-
     main()
+
 
 """
 ## importgbk
