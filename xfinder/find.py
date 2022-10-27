@@ -188,15 +188,12 @@ def run_xfinder(database_path, ref_genome_dirs, query_genome_dirs,
                 gap_threshold, size_threshold, DNA_length_threshold, max_l50,
                 threads, core_genome_cutoff, transporter_cutoff, out_dir):
     
-    # add something about removing the output dir or changing it if it 
-    # already exists
-    
-    # # Create db
-    # make_database(database_path, out_dir)
+    # Create db
+    make_database(database_path, out_dir)
 
-    # # Import genomes
-    # # I need to add a check that the directories indeed exist
-    # import_genomes_to_database(database_path, "ref", ref_genome_dirs, out_dir)
+    # Import genomes
+    # I need to add a check that the directories indeed exist
+    import_genomes_to_database(database_path, "ref", ref_genome_dirs, out_dir)
     # import_genomes_to_database(database_path, "query", query_genome_dirs, out_dir)
 
     # # Add core genome and transporter pfam information
@@ -210,7 +207,7 @@ def run_xfinder(database_path, ref_genome_dirs, query_genome_dirs,
     # cluster(threads, database_path, out_dir)
 
     # print results
-    results(core_genome_cutoff, transporter_cutoff, database_path, out_dir)
+    # results(core_genome_cutoff, transporter_cutoff, database_path, out_dir)
 
 
 
@@ -219,8 +216,8 @@ def run_xfinder(database_path, ref_genome_dirs, query_genome_dirs,
 
 def main():
     
-    out_dir = "/data/s202633/X-finder_outputs/photorhabdus_xenorhabdus"
-    database = "photorhabdus_xenorhabdus.db"
+    out_dir = "/data/s202633/X-finder_outputs/myxococcales_all"
+    database = "myxococcales_all.db"
     
     database_path = os.path.join(out_dir, database)
     
@@ -230,8 +227,7 @@ def main():
         os.path.join(genomes_dir, "actinobacteria_internal"), 
         ]    
     query_genome_dirs = [
-        os.path.join(genomes_dir, "photorhabdus"),
-        os.path.join(genomes_dir, "xenorhabdus"),
+        os.path.join(genomes_dir, "myxococcales_all"),
         ]    
 
     # out_dir = "/data/s202633/X-finder_outputs/test"
@@ -258,12 +254,20 @@ def main():
     core_genome_cutoff = 0.5
     transporter_cutoff = 0.2
 
+
     try:
+        if os.path.isdir(out_dir):
+            raise RuntimeError("Output directory already exists, aborting for"
+                               "safety")
+        else:
+            os.mkdir(out_dir)
         run_xfinder(
             database_path, ref_genome_dirs, query_genome_dirs, 
             core_genome_path, transporter_pfams_path, seed_size, 
             gap_threshold, size_threshold, DNA_length_threshold, max_l50,
             threads, core_genome_cutoff, transporter_cutoff, out_dir)
+    except RuntimeError:
+        print_stderr(traceback.format_exc())
     except:
         print_stderr(traceback.format_exc(), out_dir)
 
