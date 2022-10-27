@@ -14,24 +14,29 @@ def check_for_stderr(output_stderr):
     except: 
         print(output_stderr)
         sys.exit(1)
-    
-
-def create_dir(outdir):
-    """ Creates directory if it does not already exist"""
-    if os.path.isdir(outdir) is False:
-        os.mkdir(outdir)
 
 
-def get_all_assemblies(genus, assembly_lvl):
+def get_all_assemblies(genus, tax_ids, assembly_acc, assembly_lvl):
     """
     Get all refseq assemblies of the genus, sorted by RefSeq assembly accession
     """
-    args = [
-        "ncbi-genome-download", "--dry-run", "--assembly-levels", assembly_lvl,
-        "--genera", genus, "bacteria"
-        ]
-    output = subprocess.run(args, stdout=subprocess.PIPE, stdin=subprocess.PIPE, check=True)
-        # check=True raises an CalledProcessError exception if process exits with a non-zero exit code
+    
+    assert (genus, tax_ids, assembly_acc).count(None) == 2
+    
+    args = ["ncbi-genome-download", "--dry-run", 
+            "--assembly-levels", assembly_lvl]
+    if genus is not None:
+        args += ["--genera", genus]
+    elif tax_ids is not None:
+        args += ["--taxids", tax_ids]
+    else:
+        args += ["--assembly-accessions", assembly_acc]
+    args.append("bacteria")
+
+    # check=True raises an CalledProcessError exception if process 
+    # exits with a non-zero exit code
+    output = subprocess.run(args, stdout=subprocess.PIPE, 
+                            stdin=subprocess.PIPE, check=True)
     check_for_stderr(output.stderr)
     assemblies = output.stdout.decode('utf-8').split("\n")[1:-1]
     return sorted(assemblies, reverse=True)
@@ -53,39 +58,44 @@ def filter_assemblies(assemblies):
     return filtered_assemblies
 
 
-def refseq_accessions(genus, assembly_lvl, max_genomes, outdir):
+def get_refseq_accessions(genus, tax_id, assembly_acc, assembly_lvl, 
+                          max_genomes, one_per_species, outdir):
 
     # Get all refseq assemblies of the genus
-    assemblies = get_all_assemblies(genus, assembly_lvl)
+    assemblies = get_all_assemblies(genus, tax_id, assembly_acc, assembly_lvl)
     # only one assembly per organism name
-    filtered_assemblies = filter_assemblies(assemblies)
-    filtered_assemblies = filtered_assemblies[:max_genomes]
+    if one_per_species:
+        assemblies = filter_assemblies(assemblies)
+    if max_genomes is not None:
+        assemblies = assemblies[:max_genomes]
+        
     # Write the assemblies to a file
-    create_dir(outdir)
-    filename = outdir / "assembly_accessions.txt"
+    if os.path.isdir(outdir) is False:
+        os.mkdir(outdir)
+    filename = os.path.join(outdir, "refseq_assembly_accessions.txt")
     with open(filename, "w") as outfile:
-        for assembly in filtered_assemblies:
+        for assembly in assemblies:
             print(assembly.split()[0], file=outfile)
     return filename
 
 
 def download_genomes(outdir, inputfile):
     
-    # download
-    outputfile = outdir / "ncbi_dataset.zip"
+    outputfile = os.path.join(outdir, "ncbi_dataset.zip")
     args = [
         "datasets", "download", "genome", "accession", "--inputfile", 
         inputfile, "--include-gbff", "--exclude-gff3", 
         "--exclude-protein", "--exclude-rna", "--exclude-genomic-cds", 
         "--exclude-seq", "--filename", outputfile
         ]
-    output = subprocess.run(args, stdout=subprocess.PIPE, stdin=subprocess.PIPE, check=True)
-        # check=True raises CalledProcessError exception if process exits with a non-zero exit code
+    # check=True raises CalledProcessError exception if process exits 
+    # with a non-zero exit code
+    output = subprocess.run(args, stdout=subprocess.PIPE, 
+                            stdin=subprocess.PIPE, check=True)
     check_for_stderr(output.stderr)
-    sys.exit(1)
     # Unzip the file
     with zipfile.ZipFile(outputfile, 'r') as zip_ref:
         zip_ref.extractall(outdir)
     # delete unnecessary files
     os.remove(outputfile)
-    os.remove(outdir / "README.md")  
+    os.remove(os.path.join(outdir,"README.md"))
