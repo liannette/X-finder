@@ -212,4 +212,4 @@ def print_stderr(msg, out_dir=None):
     if out_dir is not None:
         with open(os.path.join(out_dir, "stderr.txt"), "a") as outfile:
             print(f"{_now()}\t{msg}", file=outfile)
-    sys.stdout.flush()
+    sys.stderr.flush()
