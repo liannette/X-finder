@@ -33,15 +33,14 @@ def run_antismash(outdir, genomic_files, cpus):
         os.mkdir(outdir_antismash)
     print(f"Writing antismash results to dir: {outdir_antismash}")
     
-    for gbff_file in genomic_files:
+    for i in range(len(genomic_files)):
+        gbff_file = genomic_files[i]
         output_basename = gbff_file.split(os.path.sep)[-2]
-        print(output_basename)
-        
         args = [
             "antismash", 
             "--minimal", 
             "--fullhmmer", 
-            "--output-dir", outdir_antismash,
+            "--output-dir", os.path.join(outdir_antismash, output_basename),
             "--output-basename", output_basename, 
             "--cpus", str(cpus), 
             gbff_file,
@@ -53,6 +52,7 @@ def run_antismash(outdir, genomic_files, cpus):
         except: 
             print(output.stderr)
             sys.exit(1)
+        print(f"{i+1} of {len(genomic_files)} done")
 
 
 def create_symbolic_links(outdir):
