@@ -33,7 +33,7 @@ def import_genomes_to_database(database_path, host_type, genome_dirs, out_dir):
     gbk_files = xfinder.find.importgbk.list_of_gbk_files(genome_dirs)
     print_stdout(f"Importing {len(gbk_files)} genbank files ({host_type}) "
                  "into the database.", out_dir)
-
+    
     not_imported_files = list()
     conn = sqlite3.connect(database_path)
     for i in range(len(gbk_files)):
@@ -188,26 +188,28 @@ def run_xfinder(database_path, ref_genome_dirs, query_genome_dirs,
                 gap_threshold, size_threshold, DNA_length_threshold, max_l50,
                 threads, core_genome_cutoff, transporter_cutoff, out_dir):
     
-    # Create db
-    make_database(database_path, out_dir)
 
-    # Import genomes
-    # I need to add a check that the directories indeed exist
-    import_genomes_to_database(database_path, "ref", ref_genome_dirs, out_dir)
-    # import_genomes_to_database(database_path, "query", query_genome_dirs, out_dir)
+        
+    # # Create db
+    # make_database(database_path, out_dir)
 
-    # # Add core genome and transporter pfam information
-    # coregen(database_path, core_genome_path, out_dir)
-    # transp(database_path, transporter_pfams_path, out_dir)
+    # # Import genomes
+    # # I need to add a check that the directories indeed exist
+    # import_genomes_to_database(database_path, "ref", ref_genome_dirs, out_dir)
+    import_genomes_to_database(database_path, "query", query_genome_dirs, out_dir)
 
-    # # find hits
-    # compare(seed_size, gap_threshold, size_threshold, DNA_length_threshold, 
-    #             threads, max_l50, database_path, out_dir)
+    # Add core genome and transporter pfam information
+    coregen(database_path, core_genome_path, out_dir)
+    transp(database_path, transporter_pfams_path, out_dir)
+
+    # find hits
+    compare(seed_size, gap_threshold, size_threshold, DNA_length_threshold, 
+                threads, max_l50, database_path, out_dir)
     # cluster hits
-    # cluster(threads, database_path, out_dir)
+    cluster(threads, database_path, out_dir)
 
     # print results
-    # results(core_genome_cutoff, transporter_cutoff, database_path, out_dir)
+    results(core_genome_cutoff, transporter_cutoff, database_path, out_dir)
 
 
 
@@ -216,8 +218,8 @@ def run_xfinder(database_path, ref_genome_dirs, query_genome_dirs,
 
 def main():
     
-    out_dir = "/data/s202633/X-finder_outputs/myxococcales_all"
-    database = "myxococcales_all.db"
+    out_dir = "/data/s202633/X-finder_outputs/myxococcales_complete"
+    database = "myxococcales_complete.db"
     
     database_path = os.path.join(out_dir, database)
     
@@ -227,7 +229,7 @@ def main():
         os.path.join(genomes_dir, "actinobacteria_internal"), 
         ]    
     query_genome_dirs = [
-        os.path.join(genomes_dir, "myxococcales_all"),
+        os.path.join(genomes_dir, "myxococcales_complete"),
         ]    
 
     # out_dir = "/data/s202633/X-finder_outputs/test"
@@ -256,18 +258,20 @@ def main():
 
 
     try:
-        if os.path.isdir(out_dir):
-            raise RuntimeError("Output directory already exists, aborting for"
-                               "safety")
-        else:
-            os.mkdir(out_dir)
+        # Create output directory
+        # if os.path.isdir(out_dir):
+        #     out_dir = None
+        #     raise RuntimeError("Output directory already exists, aborting for "
+        #                        "safety")
+        # else:
+        #     os.mkdir(out_dir)
+            
+        # run xfinder
         run_xfinder(
             database_path, ref_genome_dirs, query_genome_dirs, 
             core_genome_path, transporter_pfams_path, seed_size, 
             gap_threshold, size_threshold, DNA_length_threshold, max_l50,
             threads, core_genome_cutoff, transporter_cutoff, out_dir)
-    except RuntimeError:
-        print_stderr(traceback.format_exc())
     except:
         print_stderr(traceback.format_exc(), out_dir)
 
