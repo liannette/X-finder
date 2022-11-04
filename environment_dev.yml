@@ -1,4 +1,4 @@
-name: Xfinder
+name: Xfinder_dev
 channels:
   - conda-forge
   - bioconda
@@ -8,16 +8,18 @@ dependencies:
   - _openmp_mutex=4.5=1_gnu
   - appdirs=1.4.4=pyh9f0ad1d_0
   - atk-1.0=2.36.0=h3371d22_4
+  - attrs=21.4.0=pyhd8ed1ab_0
   - biopython=1.78=py38h497a2fe_2
   - boost-cpp=1.74.0=h312852a_4
   - brotlipy=0.7.0=py38h497a2fe_1003
   - bzip2=1.0.8=h7f98852_4
-  - ca-certificates=2021.10.8=ha878542_0
+  - ca-certificates=2022.5.18.1=ha878542_0
   - cairo=1.16.0=h6cf1ce9_1008
-  - certifi=2021.10.8=py38h578d9bd_2
+  - certifi=2022.5.18.1=py38h578d9bd_0
   - cffi=1.14.6=py38ha65f79e_0
   - charset-normalizer=2.0.12=pyhd8ed1ab_0
   - colorama=0.4.4=pyh9f0ad1d_0
+  - coverage=6.3.2=py38h7f8727e_0
   - cryptography=36.0.2=py38h2b5fc30_0
   - diamond=2.0.14=hb97b32f_1
   - expat=2.4.7=h27087fc_0
@@ -41,6 +43,7 @@ dependencies:
   - harfbuzz=3.0.0=h83ec7ef_1
   - icu=68.2=h9c3ff4c_0
   - idna=3.3=pyhd8ed1ab_0
+  - iniconfig=1.1.1=pyh9f0ad1d_0
   - jbig=2.1=h7f98852_2003
   - joblib=1.1.0=pyhd8ed1ab_0
   - jpeg=9e=h7f98852_0
@@ -71,6 +74,8 @@ dependencies:
   - libxml2=2.9.12=h72842e0_0
   - libzlib=1.2.11=h36c2ea0_1013
   - lz4-c=1.9.3=h9c3ff4c_1
+  - mypy=0.950=py38h0a891b7_0
+  - mypy_extensions=0.4.3=py38h578d9bd_5
   - ncbi-datasets-cli=13.16.0=h924138e_0
   - ncbi-genome-download=0.3.1=pyh5e36f6f_0
   - ncurses=6.3=h9c3ff4c_0
@@ -83,13 +88,17 @@ dependencies:
   - pcre=8.45=h9c3ff4c_0
   - pip=22.0.4=pyhd8ed1ab_0
   - pixman=0.40.0=h36c2ea0_0
+  - pluggy=1.0.0=py38h578d9bd_3
+  - psutil=5.9.1=py38h0a891b7_0
   - pthread-stubs=0.4=h36c2ea0_1001
+  - py=1.11.0=pyh6c4a22f_0
   - pycparser=2.21=pyhd8ed1ab_0
   - pydot=1.4.2=py38h578d9bd_1
   - pygraphviz=1.9=py38h86b1bdd_0
   - pyopenssl=22.0.0=pyhd8ed1ab_0
   - pyparsing=3.0.7=pyhd8ed1ab_0
   - pysocks=1.7.1=py38h578d9bd_4
+  - pytest=7.1.2=py38h578d9bd_0
   - python=3.8.8=hffdb5ce_0_cpython
   - python-dateutil=2.8.2=pyhd8ed1ab_0
   - python-wget=3.2=py_0
@@ -103,7 +112,9 @@ dependencies:
   - sqlite=3.37.1=h4ff8645_0
   - statsmodels=0.13.2=py38h6c62de6_0
   - tk=8.6.12=h27826a3_0
+  - tomli=2.0.1=pyhd8ed1ab_0
   - tqdm=4.64.0=pyhd8ed1ab_0
+  - typing_extensions=4.2.0=pyha770c72_1
   - urllib3=1.26.9=pyhd8ed1ab_0
   - wheel=0.37.1=pyhd8ed1ab_0
   - xlsxwriter=3.0.3=pyhd8ed1ab_0
