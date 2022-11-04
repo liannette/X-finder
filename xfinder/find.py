@@ -240,11 +240,10 @@ def main():
     # query_genome_dirs = [os.path.join(genomes_dir, "query_genomes"),]  
 
 
-    core_genome_path = os.path.join(get_git_root(), "data", "core genome", 
+    core_genome_path = os.path.join(get_git_root(), "data", "core_genome", 
                                     "Streptomyces.fasta") 
-
     transporter_pfams_path = os.path.join(get_git_root(), "data",
-                             "transporter pfams", "all_transporter_pfams.txt")
+                             "transporter_pfams", "all_transporter_pfams.txt")
 
     seed_size = 2
     gap_threshold = 2
