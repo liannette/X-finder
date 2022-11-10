@@ -42,7 +42,7 @@ def cds_translations_to_fasta(database_path, cds_trans_fasta):
     return cds_list
     
 
-def create_diamond_database(diamond_db, core_genome_path):
+def create_diamond_database(diamond_db, core_genome_path, out_dir):
     """ Create diamond databank of the core genome """
     process = Popen(["diamond", "makedb", "--in", core_genome_path, "-d", 
                       diamond_db], stdout=PIPE, stderr=PIPE)
@@ -52,21 +52,21 @@ def create_diamond_database(diamond_db, core_genome_path):
     if process.returncode == 0:
         # Both stdout & stderr are send to stdout. Diamond
         # sends status messages to stderr, even if there is no error
-        if len(stdout) > 0:
-            print_stdout(stdout.decode())
-        if len(stderr) > 0:
-            print_stdout(stderr.decode())
+        for msg in (stdout, stderr):
+            if len(msg) > 0:
+                print_stdout(msg.decode(), out_dir)
     # Error occured      
     else:
         # stderr is send to stderr
         if len(stdout) > 0:
-            print_stdout("STDOUT\n" + stdout.decode())
+            print_stdout(stdout.decode(), out_dir)
         if len(stderr) > 0:
-            print_stderr("STDERR\n" + stderr.decode())
+            print_stderr(stderr.decode(), out_dir)
+        raise RuntimeError("Error occured while creating the diamond " 
+                           "database.")
 
 
-
-def run_diamond(trans_fasta, diamond_db, result_file):
+def run_diamond(trans_fasta, diamond_db, result_file, out_dir):
     """ align the cds translations against the core genome """
     # Add the number of threads!
     process = Popen(["diamond", "blastp", "-q", trans_fasta , "-d", diamond_db,
@@ -74,18 +74,18 @@ def run_diamond(trans_fasta, diamond_db, result_file):
     stdout, stderr = process.communicate()
 
     if process.returncode == 0:
-        # Both stdout stderr are send to stdout. This is because diamond
+        # Both stdout and stderr are send to stdout. Diamond
         # sends status messages to stderr, even if there is no error
-        if len(stdout) > 0:
-            print_stdout(stdout.decode())
-        if len(stderr) > 0:
-            print_stdout(stderr.decode())
+        for msg in (stdout, stderr):
+            if len(msg) > 0:
+                print_stdout(msg.decode(), out_dir)
     else:
         # Error occured, therefore stderr is also send to stderr
         if len(stdout) > 0:
-            print_stdout("STDOUT\n" + stdout.decode())
+            print_stdout(stdout.decode(), out_dir)
         if len(stderr) > 0:
-            print_stderr("STDERR\n" + stderr.decode())
+            print_stderr(stderr.decode(), out_dir)
+        raise RuntimeError("Error occured while running diamond.")
 
 
 def _core_genome_information_to_db(database_path, core_genome_locus_tags, not_core_genome_locus_tags):
@@ -138,13 +138,11 @@ def add_coregenome_info(database_path, core_genome_path, out_dir):
             #Rewrite this so das cds_list is not nesseccary!
 
             # Write a fasta file with all cds translations
-            cds_list = cds_translations_to_fasta(
-                database_path, trans_fasta)
+            cds_list = cds_translations_to_fasta(database_path, trans_fasta)
             # Create diamond databank of the core genome
-            create_diamond_database(
-                diamond_db, core_genome_path)
+            create_diamond_database(diamond_db, core_genome_path, out_dir)
             # Run diamond
-            run_diamond(trans_fasta, diamond_db, result_file)
+            run_diamond(trans_fasta, diamond_db, result_file, out_dir)
 
             # Add the core genome information to the database
             num_core_cds = add_core_genome_information(
