@@ -646,8 +646,7 @@ def compare_genomes(seed_size, gap_threshold, size_threshold,
             ref_hostIDs,
             hit_parameters, 
             database_path, 
-            threads, 
-            out_dir
+            threads
             )
             
         # Calculate how many new comparions were made 
