@@ -107,7 +107,7 @@ def _get_cds_from_rowids(seq_acc, first_cds_rowid, last_cds_rowid, conn):
             FROM cds
             WHERE ROWID BETWEEN ? AND ?
               AND seq_accession = ?
-            """.format(first_cds_rowid, last_cds_rowid)
+            """
         c.execute(sql, (first_cds_rowid, last_cds_rowid, seq_acc))
         rows = c.fetchall()
     return [Cds._from_row(row) for row in rows]
@@ -131,7 +131,7 @@ def _get_cds(sublist, conn):
          WHERE sublists.ROWID = ?
          '''
     df = pd.read_sql_query(sql, conn, params=(sublist.id,))
-    # Combine the pfam num with the antismash core binary
+    # Combine the pfam number column with the antismash column
     df["pfams"] = list(zip(df["pfam_num"], df["antismash_core"]))
     
     first_cds_rowid = min(df["cds_rowid"])
