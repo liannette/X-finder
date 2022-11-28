@@ -30,7 +30,7 @@ def run_all(database_path, ref_genome_dirs, query_genome_dirs,
     import_genomes(database_path, "query", query_genome_dirs, out_dir)
 
     # Add core genome and transporter pfam information
-    add_coregenome_info(database_path, core_genome_path, out_dir)
+    add_coregenome_info(database_path, core_genome_path, out_dir, threads)
     add_transporter_info(database_path, transporter_pfams_path, out_dir)
 
     # find hits
