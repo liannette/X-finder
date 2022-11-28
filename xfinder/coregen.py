@@ -1,11 +1,3 @@
-# Consider to include this into the import_genomes script. 
-# It takes a lot of time to write the core genome information to the database 
-# by updating each CDS row, maybe its faster to get the core genome information 
-# before inserting the cds
-
-# - Add error handling for diamond
-# - Consider changing core genome marker from -/+ to 0/1
-
 import sqlite3
 from subprocess import Popen, PIPE
 from Bio.Seq import Seq
@@ -42,10 +34,11 @@ def cds_translations_to_fasta(database_path, cds_trans_fasta):
     return cds_list
     
 
-def create_diamond_database(diamond_db, core_genome_path, out_dir):
+def create_diamond_database(diamond_db, core_genome_path, out_dir, threads):
     """ Create diamond databank of the core genome """
     process = Popen(["diamond", "makedb", "--in", core_genome_path, "-d", 
-                      diamond_db], stdout=PIPE, stderr=PIPE)
+                      diamond_db, "--threads", threads], 
+                    stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate() 
 
     # No error occured
@@ -66,11 +59,12 @@ def create_diamond_database(diamond_db, core_genome_path, out_dir):
                            "database.")
 
 
-def run_diamond(trans_fasta, diamond_db, result_file, out_dir):
+def run_diamond(trans_fasta, diamond_db, result_file, out_dir, threads):
     """ align the cds translations against the core genome """
     # Add the number of threads!
     process = Popen(["diamond", "blastp", "-q", trans_fasta , "-d", diamond_db,
-                     "-o", result_file, "--fast"], stdout=PIPE, stderr=PIPE)
+                     "-o", result_file, "--threads", threads, "--fast"], 
+                    stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
 
     if process.returncode == 0:
@@ -88,7 +82,8 @@ def run_diamond(trans_fasta, diamond_db, result_file, out_dir):
         raise RuntimeError("Error occured while running diamond.")
 
 
-def _core_genome_information_to_db(database_path, core_genome_locus_tags, not_core_genome_locus_tags):
+def _core_genome_information_to_db(database_path, core_genome_locus_tags, 
+                                   not_core_genome_locus_tags):
     """
     CDS that have aligned to core genome are marked with 1,
     CDS that have not aligned to core genome are marked with 0
@@ -123,7 +118,7 @@ def add_core_genome_information(database_path, result_file, cds_list):
     return len(core_genome_locus_tags)
 
 
-def add_coregenome_info(database_path, core_genome_path, out_dir):
+def add_coregenome_info(database_path, core_genome_path, out_dir, threads):
 
     try:
         print_stdout("Adding core genome information. Core genome file: "
@@ -135,14 +130,13 @@ def add_coregenome_info(database_path, core_genome_path, out_dir):
             diamond_db = os.path.join(temp_dir, "core_genome.dmnd")
             result_file = os.path.join(temp_dir, "diamond_out.tsv")
 
-            #Rewrite this so das cds_list is not nesseccary!
-
             # Write a fasta file with all cds translations
             cds_list = cds_translations_to_fasta(database_path, trans_fasta)
             # Create diamond databank of the core genome
-            create_diamond_database(diamond_db, core_genome_path, out_dir)
+            create_diamond_database(diamond_db, core_genome_path, out_dir, 
+                                    threads)
             # Run diamond
-            run_diamond(trans_fasta, diamond_db, result_file, out_dir)
+            run_diamond(trans_fasta, diamond_db, result_file, out_dir, threads)
 
             # Add the core genome information to the database
             num_core_cds = add_core_genome_information(
