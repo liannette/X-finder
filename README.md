@@ -1,4 +1,8 @@
 # discoverBGC
   discover new biosynthetic gene cluster through genome comparison
 
-Documentation will be added soon.
+To do:
+* add documentation
+* write missing unit tests 
+* upload to pypi
+* automate the generation of a core genome
