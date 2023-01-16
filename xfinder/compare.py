@@ -181,10 +181,16 @@ def get_host_ids(conn, host_type, max_l50):
     Gets the hostIDs for either query or reference hosts
     '''
     with contextlib.closing(conn.cursor()) as c:
-        sql = ''' SELECT hostID
-                    FROM hosts 
-                WHERE host_type = ? AND L50 <= ?'''
-        rows = c.execute(sql, (host_type, max_l50)).fetchall()
+        if max_l50 is None:
+            sql = ''' SELECT hostID
+                        FROM hosts 
+                    WHERE host_type = ?'''
+            rows = c.execute(sql, (host_type,)).fetchall()
+        else:      
+            sql = ''' SELECT hostID
+                        FROM hosts 
+                    WHERE host_type = ? AND L50 <= ?'''
+            rows = c.execute(sql, (host_type, max_l50)).fetchall()
         hostIDs = [row[0] for row in rows]
     return hostIDs
 
@@ -258,7 +264,7 @@ def _find_common_sublists(query_seq, ref_seq, length_threshold):
     '''
     purpose: compare a query gpfamnumbersequence with a reference 
     gpfamnumbersequence to find out all common pfamnumber sublists 
-    longer than the threshold (2 by default) in both directions.
+    longer or equal the threshold (2 by default) in both directions.
     the common sublists are all exact matches. insertion, deletion or
     invertion is not tolerated in this step. these represent the exactly
     matched pfam domain sequences from both genomes. pfamnumber repeats 
@@ -424,7 +430,7 @@ def _filter_query_dna_length(query_g_pfam_list, hits, dna_length_threshold):
     for hit in hits:
         query_dna_start = query_g_pfam_list[hit.query_start].start
         query_dna_end = query_g_pfam_list[hit.query_end - 1].end
-        if (query_dna_end - query_dna_start) > dna_length_threshold:
+        if (query_dna_end - query_dna_start) >= dna_length_threshold:
            filtered_hits.append(hit)
     return filtered_hits
 
