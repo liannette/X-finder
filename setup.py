@@ -13,7 +13,8 @@ setup(
         "biopython == 1.79",
         "goatools == 1.2.3",
         "pandas",
-        "joblib"
+        "joblib",
+        "ncbi-genome-download == 0.3.1",
         ],
     python_requires=">=3.8",
     license="GNU Affero General Public License v3 or later (AGPLv3+)",
