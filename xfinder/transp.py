@@ -66,7 +66,7 @@ def get_transporter_pfams(file_path=None):
     if file_path is None:
         transporter_pfams = _get_transporter_pfams_from_pfam2go()
     elif os.path.exists(file_path) is False:
-        print_stdout("File with transporter pfams does not exist yet. "
+        print_stdout("File with transporter pfams does not exist. "
                      "Transporter pfams will be collected.")
         transporter_pfams = _get_transporter_pfams_from_pfam2go()
     else:

@@ -180,6 +180,8 @@ def make_database(database_path, out_dir):
     ''' Creates the database with tables and indeces '''
 
     if os.path.isdir(out_dir):
+        # out_dir needs to be set to None, so that the error is not 
+        # printed to a log file
         out_dir = None
         raise RuntimeError("Output directory already exists, aborting for "
                             "safety")

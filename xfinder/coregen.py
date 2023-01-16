@@ -43,7 +43,6 @@ def create_diamond_database(diamond_db, core_genome_path, out_dir, threads):
 
     # Error occured      
     if process.returncode != 0:
-        # stderr is send to stderr
         if len(stdout) > 0:
             print_stdout(stdout.decode(), out_dir)
         if len(stderr) > 0:
