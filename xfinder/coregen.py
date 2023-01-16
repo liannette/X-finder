@@ -37,7 +37,7 @@ def cds_translations_to_fasta(database_path, cds_trans_fasta):
 def create_diamond_database(diamond_db, core_genome_path, out_dir, threads):
     """ Create diamond databank of the core genome """
     process = Popen(["diamond", "makedb", "--in", core_genome_path, "-d", 
-                      diamond_db, "--threads", threads], 
+                      diamond_db, "--threads", str(threads)], 
                     stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate() 
 
@@ -63,7 +63,7 @@ def run_diamond(trans_fasta, diamond_db, result_file, out_dir, threads):
     """ align the cds translations against the core genome """
     # Add the number of threads!
     process = Popen(["diamond", "blastp", "-q", trans_fasta , "-d", diamond_db,
-                     "-o", result_file, "--threads", threads, "--fast"], 
+                     "-o", result_file, "--threads", str(threads), "--fast"], 
                     stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
 
