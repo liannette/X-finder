@@ -16,7 +16,7 @@ X-finder is build and tested in python3.8. We recommend installing
 X-finder in a conda environment like so:
 
 ```
-# navigate to where you want to download the ipresto repo
+# navigate to where you want to download the xfinder repo
 git clone https://github.com/liannette/X-finder.git
 
 # navigate into the repo
