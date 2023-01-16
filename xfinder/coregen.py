@@ -41,15 +41,8 @@ def create_diamond_database(diamond_db, core_genome_path, out_dir, threads):
                     stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate() 
 
-    # No error occured
-    if process.returncode == 0:
-        # Both stdout & stderr are send to stdout. Diamond
-        # sends status messages to stderr, even if there is no error
-        for msg in (stdout, stderr):
-            if len(msg) > 0:
-                print_stdout(msg.decode(), out_dir)
     # Error occured      
-    else:
+    if process.returncode != 0:
         # stderr is send to stderr
         if len(stdout) > 0:
             print_stdout(stdout.decode(), out_dir)
@@ -57,6 +50,10 @@ def create_diamond_database(diamond_db, core_genome_path, out_dir, threads):
             print_stderr(stderr.decode(), out_dir)
         raise RuntimeError("Error occured while creating the diamond " 
                            "database.")
+    # Diamond sends status messages to stderr, even if there is no error
+    for msg in (stdout, stderr):
+        if len(msg) > 0:
+            print_stdout(msg.decode(), out_dir)
 
 
 def run_diamond(trans_fasta, diamond_db, result_file, out_dir, threads):
