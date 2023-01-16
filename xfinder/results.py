@@ -7,7 +7,7 @@ import traceback
 import sys
 
 
-# functions still need to be put into order
+# sort by 1. number of sublists in cluster, 2. sequence/contig 3. pos of sublist in sequence/contig
 
 class Sublist:
     
