@@ -78,7 +78,6 @@ def download_genomes(refseq_acc_file, outdir):
     args = [
         "ncbi-genome-download", "--human-readable", 
         "--assembly-accessions", refseq_acc_file,
-        "--metadata-table", os.path.join(outdir, "metadata.tsv"),
         "--output-folder", outdir,
         "bacteria"
         ]
