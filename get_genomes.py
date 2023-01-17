@@ -153,7 +153,7 @@ def run_antismash(outdir, threads, antismash_path):
                    antismash_path)
         
     # symbolic links for the antismash genbank files   
-    _create_links(args.outdir)
+    _create_links(outdir)
     
     
 if __name__ == "__main__":
