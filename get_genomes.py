@@ -1,5 +1,11 @@
-# Additional script to generate input files for X-finder
+"""
+Author: Annette Lien (a.lien@posteo.de)
 
+Additional script for simple generation of input files for X-finder
+
+usage:
+python xfinder.py -h
+"""
 import os
 import subprocess
 import sys
