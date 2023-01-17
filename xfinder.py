@@ -21,12 +21,14 @@ def get_commands():
         "Must not exist already.", metavar="<dir>")
     parser.add_argument(
         "-q", "--queries_dirs", dest="query_genome_dirs", help="Input "
-        "directories of query gbk files, with antismash annotation "
+        "directories of query gbk files, Genomes must be in Genbank format "
+        "with '.gbk' file extension and contain antismash annotation "
         "(--fullhmmer). Multiple directories are possible, paths must be "
         "seperated with a ','", required=True, metavar="<dirs>")
     parser.add_argument(
         "-r", "--ref_dirs", dest="ref_genome_dirs", help="Input "
-        "directories of reference gbk files, with antismash annotation "
+        "directories of reference genomes. Genomes must be in Genbank format "
+        "with '.gbk' file extension and contain antismash annotation "
         "(--fullhmmer). Multiple directories are possible, paths must be "
         "seperated with a ','", required=True, metavar="<dirs>")
     parser.add_argument(
@@ -67,11 +69,11 @@ def get_commands():
         "long (default: 7000)", type=int, metavar="<int>")
     parser.add_argument(
         "--core_cutoff", dest="core_genome_cutoff", default=0.5, help="Cutoff "
-        "for core genome filtering (default:0.5)", type=float, 
+        "for core genome filtering (default: 0.5)", type=float, 
         metavar="<float>")
     parser.add_argument(
         "--transporter_cutoff", dest="transporter_cutoff", default=0.2, 
-        help="Cutoff for transporter function filtering (default:0.2)", 
+        help="Cutoff for transporter function filtering (default: 0.2)", 
         type=float, metavar="<float>")
     return parser.parse_args()
 

@@ -24,7 +24,7 @@ def get_commands():
         help="Output directory, this will contain all output data files.")
     parser.add_argument(
         "-i", "--refseq_accessions_path", dest="refseq_acc_file", 
-        required=True, metavar="<str or file>", help="Absolute path to an "
+        required=True, metavar="<file>", help="Path to an "
         "input file containing one RefSeq accession per line.")
     parser.add_argument(
         "-t", "--threads", dest="threads", default=cpu_count(),
@@ -32,9 +32,9 @@ def get_commands():
         available cores)", type=int, metavar="<int>")
     parser.add_argument(
         "-a", "--antismash_path", dest="antismash_path", default="antismash",
-        metavar="<file>", help="Absolute path to the antismash program. Only "
-        "necessary, if antismash is not loaded as a module and can't be "
-        "accessed by writing 'antismash' in the commandline.")
+        metavar="<file>", help="Path to antismash. Only necessary, if "
+        "antismash is not loaded as a module and can't be accessed by writing "
+        "'antismash' in the commandline.")
     return parser.parse_args()
 
 
