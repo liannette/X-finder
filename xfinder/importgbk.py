@@ -202,8 +202,6 @@ class SeqRecord:
 
 
 def list_of_gbk_files(genome_dirs):
-    """ genome_dirs must be absolute path"""
-    # Add restriction for type (query, ref)
     genome_files = list()
     for genome_dir in genome_dirs:
         genome_files += glob.glob(os.path.join(genome_dir, "*.gbk"))
