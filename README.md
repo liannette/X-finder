@@ -166,7 +166,7 @@ python3 getgenomes.py download \
     --refseq_accessions_path ../genomes/refseq_acc.txt \
 
 # Run antiSMASH on the previously downloaded genomes
-python3 getgenomes.py download \
+python3 getgenomes.py antismash \
     --output_dir ../genomes \
     --input_dir ../genomes/ncbi-download/all \
     --threads 8 
