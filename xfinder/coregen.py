@@ -62,20 +62,18 @@ def run_diamond(trans_fasta, diamond_db, result_file, out_dir, threads):
                      "-o", result_file, "--threads", str(threads), "--fast"], 
                     stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
-
-    if process.returncode == 0:
-        # Both stdout and stderr are send to stdout. Diamond
-        # sends status messages to stderr, even if there is no error
-        for msg in (stdout, stderr):
-            if len(msg) > 0:
-                print_stdout(msg.decode(), out_dir)
-    else:
-        # Error occured, therefore stderr is also send to stderr
+    # Error occured
+    if process.returncode != 0:
         if len(stdout) > 0:
             print_stdout(stdout.decode(), out_dir)
         if len(stderr) > 0:
             print_stderr(stderr.decode(), out_dir)
         raise RuntimeError("Error occured while running diamond.")
+    # If no error occurs, both stdout and stderr are send to stdout.
+    # Diamond sends status messages to stderr, even if there is no error
+    for msg in (stdout, stderr):
+        if len(msg) > 0:
+            print_stdout(msg.decode(), out_dir)
 
 
 def _core_genome_information_to_db(database_path, core_genome_locus_tags, 
