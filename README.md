@@ -46,129 +46,136 @@ input genomes for X-finder. We recommend using antiSMASH version 6.1.1. More inf
 
 ## Usage
 
+X-finder contains two commandline scripts:
+* xfinder.py for main functionalities
+* getgenomes.py for generating input genomes for xfinder
+
+
 ### xfinder.py
 
-xfinder.py executes the main functionalities of X-finder. The required imput files for the X-finder analysis are two directories with genomes in GenBank format and one fasta file containing core genome coding sequences. 
+xfinder.py executes the main functionalities of X-finder. The required imput files are at least two directories with genomes in GenBank format (one with reference genomes and one with query genomes) and one fasta file containing coding sequences (CDS) of the core genomes for filtering the results. 
 
-The query and reference input genomes must contain annotations for coding sequences, PFAM domains, and antiSMASH cluster. We recommend to run antiSMASH (on minimal and fullhmmer settings) on each genome and then use the full genome .gbk file from the antiSMASH output. We also provide an additional script "get_genomes.py" for easy input genome generation, see below.
+The query and reference input genomes must contain annotations for CDS and PFAM domains. Ideally they also contain antiSMASH cluster annotation. We recommend to run antiSMASH (on minimal and fullhmmer settings) on each genome and then use the full genome .gbk file from the antiSMASH output. This can be automated by using getgenomes.py.
 
+xfinder.py also needs a core genome file as input. A Streptomyces core genome file is available in the data folder, but other core genomes can be generated with OrthoVenn2 (https://orthovenn2.bioinfotoolkits.net/home). 
 
-Regarding the core genome, a core genome file for Streptomyces is available in the data folder, but other core genomes can be generated with OrthoVenn2 (https://orthovenn2.bioinfotoolkits.net/home). 
+We also provide a file containing the transporter PFAM numbers in the data folder. However, if no file is specified, xfinder.py will generate its own list of transporter PFAM numbers. This prolongs the runtime by approximately 15 minutes.
 
-We also provide a file containing the transporter pfams in the data folder. However, if no file is specified, xfinder.py will generate its own list of transporter pfams, which prolongs the runtime.
-
+Toggle -h or --help for additional command line arguments and default values: 
 ```
-usage: xfinder.py [-h] -o <dir> -q <dirs> -r <dirs> --core_genome
-                  <file> [--transporter_pfams <file>] [-t <int>]
-                  [--max_l50 <int>] [--min_seed_size <int>]
-                  [--max_gap <int>] [--min_sublist_size <int>]
+# Show help message
+python3 xfinder.py -h
+```
+Help message:
+```
+usage: xfinder.py [-h] -o <dir> -q <dirs> -r <dirs> --core_genome <file>
+                  [--transporter_pfams <file>] [-t <int>] [--max_l50 <int>]
+                  [--min_seed_size <int>] [--max_gap <int>] [--min_sublist_size <int>]
                   [--min_dna_length <int>] [--core_cutoff <float>]
                   [--transporter_cutoff <float>]
 
 optional arguments:
   -h, --help            show this help message and exit
-  -o <dir>, --out_folder <dir>
-                        Output directory, this will contain all output
-                        data files. Must not exist already.
+  -o <dir>, --output_dir <dir>
+                        Output directory, this will contain all output data files. Must
+                        not exist already.
   -q <dirs>, --queries_dirs <dirs>
-                        Input directories of query gbk files, Genomes
-                        must be in Genbank format with '.gbk' file
-                        extension and contain antismash annotation
-                        (--fullhmmer). Multiple directories are
-                        possible, paths must be seperated with a ','
+                        Input directories of query gbk files, Genomes must be in
+                        Genbank format with '.gbk' file extension and contain antismash
+                        annotation (--fullhmmer). Multiple directories are possible,
+                        paths must be seperated with a ','
   -r <dirs>, --ref_dirs <dirs>
-                        Input directories of reference genomes.
-                        Genomes must be in Genbank format with '.gbk'
-                        file extension and contain antismash
-                        annotation (--fullhmmer). Multiple directories
-                        are possible, paths must be seperated with a
-                        ','
+                        Input directories of reference genomes. Genomes must be in
+                        Genbank format with '.gbk' file extension and contain antismash
+                        annotation (--fullhmmer). Multiple directories are possible,
+                        paths must be seperated with a ','
   --core_genome <file>  Fasta file containing core genome sequences.
   --transporter_pfams <file>
-                        File containing all PFAM domains that are
-                        associated with transporter function, one PFAM
-                        number (without the PF) per line. (default:
-                        None)
+                        File containing all PFAM domains that are associated with
+                        transporter function, one PFAM number (without the PF) per
+                        line. (default: None)
   -t <int>, --threads <int>
-                        Set the number of threads the script may use
-                        (default: use all available cores)
-  --max_l50 <int>       Only considers input genomes with a L50 value
-                        of this or lower. L50 is defined as count of
-                        smallest number of contigs whose length sum
-                        makes up half of genome size (default: None)
+                        Set the number of threads the script may use (default: use all
+                        available cores)
+  --max_l50 <int>       Only considers input genomes with a L50 value of this or lower.
+                        L50 is defined as count of smallest number of contigs whose
+                        length sum makes up half of genome size (default: None)
   --min_seed_size <int>
-                        The minimum number of pfam domains that match
-                        exactly during the initial step of finding
-                        common pfam domains between a query and ref
-                        genome (each genome represented by a
-                        genomepfamsequence). Do not change this value,
-                        except you know what you are doing! (default:
-                        2)
-  --max_gap <int>       The maximum number of pfam domains in a gap,
-                        when combining neighboring/overlapping exact
-                        matches (default: 2)
+                        The minimum number of pfam domains that match exactly during
+                        the initial step of finding common pfam domains between a query
+                        and ref genome (each genome represented by a
+                        genomepfamsequence). Do not change this value, except you know
+                        what you are doing! (default: 2)
+  --max_gap <int>       The maximum number of pfam domains in a gap, when combining
+                        neighboring/overlapping exact matches (default: 2)
   --min_sublist_size <int>
-                        Both sublists of a hit must contain at least
-                        this many PFAM domains. (default: 6)
+                        Both sublists of a hit must contain at least this many PFAM
+                        domains. (default: 6)
   --min_dna_length <int>
-                        The DNA sequence length of the query sublist
-                        must be at this long (default: 7000)
+                        The DNA sequence length of the query sublist must be at this
+                        long (default: 7000)
   --core_cutoff <float>
-                        Cutoff for core genome filtering (default:
-                        0.5)
+                        Cutoff for core genome filtering (default: 0.5)
   --transporter_cutoff <float>
-                        Cutoff for transporter function filtering
-                        (default: 0.2)
+                        Cutoff for transporter function filtering (default: 0.2)
 ```
 
-Example command for xfinder.py:
+Example commands for xfinder.py:
 ```
+# Only one directory for reference genomes and query genomes
 python3 xfinder.py \
-  -o ../xfinder_output \
-  -q ../ref_genomes1,../ref_genomes2 \
-  -r ../ref_genomes1,../ref_genomes2 \
-  --core_genome data/Streptomyces_core_genome.fasta \
-  --transporter_pfams data/transporter_pfams.txt --max_l50 3 -t 8
+    --output_dir ../xfinder_output \
+    --queries_dirs ../query_genomes \
+    --ref_dirs ../ref_genomes \
+    --max_l50 3 \
+    --core_genome data/Streptomyces_core_genome.fasta \
+    --transporter_pfams data/transporter_pfams.txt \
+    --threads 8
+
+# Several directories for reference genomes and query genomes
+python3 xfinder.py \
+    --output_dir ../xfinder_output \
+    --queries_dirs ../query_genomes1,../query_genomes2 \
+    --ref_dirs ../ref_genomes1,../ref_genomes2 \
+    --max_l50 3 \
+    --core_genome data/Streptomyces_core_genome.fasta \
+    --transporter_pfams data/transporter_pfams.txt \
+    --threads 8
 ```
 
 
-### get_genomes.py
+### getgenomes.py
 
-The additional script get_genomes.py downloads genomes from NCBI and runs themthrough antiSMASH (on minimal and fullhmmer settings) in one step. The final genomes that can be used as input for xfinder.py can be found under <output_dir>/final. get_genomes.py takes as input a file containing one RefSeq accession per line. To generate the input file, we suggest selecting genome assemblies (preferably at an assembly level 'chromosome' or 'complete') from https://www.ncbi.nlm.nih.gov/data-hub/genome/. A table of the selected assemblies can be downloaded from that site and the RefSeq accessions extracted from that tsv file. 
+The additional script getgenomes.py downloads genomes from NCBI and runs them through antiSMASH (on minimal and fullhmmer settings). The resulting files can be used as input genomes for xfinder.py and are located unter <output_dir>/antismash/all. getgenomes.py takes as input a file containing RefSeq accessions, one per line. To generate the input file, we suggest selecting genome assemblies (preferably at an assembly level 'chromosome' or 'complete') from https://www.ncbi.nlm.nih.gov/data-hub/genome/. A table of the selected assemblies can be downloaded from that site and the RefSeq accessions extracted from that tsv file. 
+
+Downloading the genomes and running antiSMASH can be done in two seperate steps or in one. You can choose between 'download' (only download), 'antismash' (only antiSMASH) or 'complete' (download and antiSMASH). Toggle -h or --help for additional command line arguments and default values: 
 
 ```
-usage: get_genomes.py [-h] -o <dir> -i <file> [-t <int>] [-a <file>]
-
-Additional script to generate input files for X-finder. RefSeq
-assemblies are downloaded from NCBI and run through antiSMASH with
---minimal and --fullhmmer setting. Takes as input a file with one
-RefSeq accession per line. We suggest getting the RefSeq accessions
-by downloading a tsv file from https://www.ncbi.nlm.nih.gov/data-
-hub/genome/ and then copying the RefSeq accessions into a text file.
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -o <dir>, --output_dir <dir>
-                        Output directory, this will contain all
-                        output data files.
-  -i <file>, --refseq_accessions_path <file>
-                        Path to an input file containing one RefSeq
-                        accession per line.
-  -t <int>, --threads <int>
-                        Set the number of threads the script may use
-                        (default: use all available cores)
-  -a <file>, --antismash_path <file>
-                        Path to antismash. Only necessary, if
-                        antismash is not loaded as a module and can't
-                        be accessed by writing 'antismash' in the
-                        commandline.
+# Show help messages
+python3 getgenomes.py -h
+python3 getgenomes.py download -h
+python3 getgenomes.py antismash -h
+python3 getgenomes.py complete -h
 ```
 
-Example command for get_genomes.py:
+Example commands for getgenomes.py:
 ```
-python3 get_genomes.py \
-  -o ../query_genomes \
-  -i ../query_genomes/refseq_acc.txt \
-  -t 8 \
-  -a /opt/antismash/6.1.1/antismash
+# Download refseq assemblies from ncbi
+python3 getgenomes.py download \
+    --output_dir ../genomes \
+    --refseq_accessions_path ../genomes/refseq_acc.txt \
+
+# Run antiSMASH on the previously downloaded genomes
+python3 getgenomes.py download \
+    --output_dir ../genomes \
+    --input_dir ../genomes/ncbi-download/all \
+    --threads 8 
+    --antismash_path /opt/antismash/6.1.1/antismash
+
+# Download genomes and run antiSMASH in one step
+python3 getgenomes.py complete \
+    --output_dir ../genomes \
+    --refseq_accessions_path ../genomes/refseq_acc.txt \
+    --threads 8 \
+    --antismash_path /opt/antismash/6.1.1/antismash
 ```

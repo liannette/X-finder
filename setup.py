@@ -8,7 +8,7 @@ setup(
     url="https://github.com/liannette/X-finder",
     author="Annette Lien",
     author_email="a.lien@posteo.de",
-    packages=["xfinder"],
+    packages=["xfinder", "getgenomes"],
     install_requires=[
         "biopython == 1.79",
         "goatools == 1.2.3",
