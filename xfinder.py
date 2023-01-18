@@ -16,7 +16,7 @@ def get_commands():
     parser = argparse.ArgumentParser(
         description="")
     parser.add_argument(
-        "-o", "--out_folder", dest="out_dir", required=True,
+        "-o", "--output_dir", dest="out_dir", required=True,
         help="Output directory, this will contain all output data files. "
         "Must not exist already.", metavar="<dir>")
     parser.add_argument(
