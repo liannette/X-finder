@@ -4,6 +4,7 @@ import glob
 from getgenomes.common import print_log, print_stdout_stderr, create_dir
 from pathlib import Path
 
+
 def _run_antismash(genome_file, outdir, outdir_antismash, threads, 
                    antismash_path):
     
@@ -48,20 +49,30 @@ def run_antismash(indir, outdir, threads, antismash_path):
 
     # Check the arguments
     if os.path.isdir(indir) is False:
+        print_log(f"Not a directory: {indir}.", outdir)
         raise RuntimeError(f"Not a directory: {indir}")
     create_dir(outdir)
 
+    # Get a list of all paths of the genome files
+    genome_files = glob.glob(os.path.join(indir, "*"))
+    if len(genome_files) == 0:
+        print_log(f"Aborting, because the input directory is empty.", outdir)
+        raise RuntimeError(f"No files in input directory")
+    
     # Create the destination directory
     outdir_antismash = os.path.join(outdir, "antismash")
     create_dir(outdir_antismash)
-
-    # Get a list of all paths of the genome files
-    genome_files = glob.glob(os.path.join(indir, "*"))
-    print_log(f"Started antiSMASH on {len(genome_files)} files", outdir)
-    for genome_file in genome_files:
+    
+    # Try to run antismash on each file in the input directory
+    for i in range(len(genome_files)):
+        genome_file = Path(genome_files[i])
+        print_log(f"Started antiSMASH on file {i+1} of {len(genome_files)}: "
+                  f"{genome_file}", outdir)
         _run_antismash(genome_file, outdir, outdir_antismash, threads, 
                        antismash_path)
         
     # Create a directory with symbolic links of all antismash gbk genomes   
     _create_links(outdir_antismash, outdir)
+    
+    print_log("Finished running antiSMASH on all genomes", outdir)
     

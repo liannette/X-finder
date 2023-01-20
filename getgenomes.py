@@ -13,6 +13,7 @@ python3 getgenomes.py antismash -h
 import argparse
 import os
 import sys
+from getgenomes.common import create_dir, print_log
 from getgenomes.download import download_genomes
 from getgenomes.antismash import run_antismash
 from pathlib import Path
@@ -108,8 +109,13 @@ def _prog_name(mode):
     return 'python3 ' + os.path.basename(__file__) + " " + mode
 
 
+def command2log(outdir):
+    create_dir(outdir)
+    print_log(f"Command: {' '.join(sys.argv)}")
+
 def download_and_antismash(mode):
     args = get_commands_complete(_prog_name(mode))
+    command2log(Path(args.outdir))
     genomes_dir = download_genomes(
         Path(args.refseq_acc_file), 
         Path(args.outdir),
@@ -124,6 +130,7 @@ def download_and_antismash(mode):
 
 def only_download(mode):
     args = get_commands_download(_prog_name(mode))
+    command2log(Path(args.outdir))
     download_genomes(
         Path(args.refseq_acc_file), 
         Path(args.outdir),
@@ -132,6 +139,7 @@ def only_download(mode):
     
 def only_antismash(mode):
     args = get_commands_antismash(_prog_name(mode))
+    command2log(Path(args.outdir))
     run_antismash(
         Path(args.indir), 
         Path(args.outdir), 

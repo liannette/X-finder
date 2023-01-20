@@ -40,7 +40,7 @@ def _count_genomes(refseq_acc_file, outdir):
         print_log(msg, outdir)
         raise RuntimeError(msg)     
     num_assemblies = len(stdout.decode().split("\n")[1:-1])
-    print_log(f"Downloading {num_assemblies} genomes", outdir)
+    return num_assemblies
 
 
 def download_genomes(refseq_acc_file, outdir):
@@ -51,7 +51,8 @@ def download_genomes(refseq_acc_file, outdir):
     create_dir(outdir)
     
     # Dry run to count the number of genomes to download
-    _count_genomes(refseq_acc_file, outdir)
+    num_assemblies = _count_genomes(refseq_acc_file, outdir)
+    print_log(f"Downloading {num_assemblies} genomes", outdir)
     
     # download the genomes
     outdir_downloads = os.path.join(outdir, "ncbi-download")
@@ -73,5 +74,7 @@ def download_genomes(refseq_acc_file, outdir):
     
     # Create a directory with symbolic links of all downloaded genomes
     final_dir = _create_links(outdir_downloads, outdir)
+    
+    print_log("Finished downloading genomes", outdir)
     
     return final_dir
