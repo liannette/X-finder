@@ -65,7 +65,7 @@ def run_antismash(indir, outdir, threads, antismash_path):
     
     # Try to run antismash on each file in the input directory
     for i in range(len(genome_files)):
-        genome_file = Path(genome_files[i])
+        genome_file = genome_files[i]
         print_log(f"Started antiSMASH on file {i+1} of {len(genome_files)}: "
                   f"{genome_file}", outdir)
         _run_antismash(genome_file, outdir, outdir_antismash, threads, 

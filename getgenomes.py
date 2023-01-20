@@ -16,17 +16,17 @@ import sys
 from getgenomes.common import create_dir, print_log
 from getgenomes.download import download_genomes
 from getgenomes.antismash import run_antismash
-from pathlib import Path
 
 
-def print_help(modes):
+def print_help(commands):
     parser = argparse.ArgumentParser(
             description= "Script to generate input genomes for xfinder.py "
             "Please specify the mode: 'download' to download RefSeq genomes, "
             "'antismash' to do a minimal run of antiSMASH including full "
             "whole-genome HMMer analysis and 'complete' to do both in one "
             "step.", prog='python3 ' + os.path.basename(__file__))
-    parser.add_argument('mode', help=f"Choose from: {', '.join(modes)}")
+    parser.add_argument('command', metavar="<command>", 
+                        help=f"Choose from: {', '.join(commands)}")
     parser.print_help()
 
 
@@ -115,56 +115,56 @@ def command2log(outdir):
 
 def download_and_antismash(mode):
     args = get_commands_complete(_prog_name(mode))
-    command2log(Path(args.outdir))
+    command2log(args.outdir)
     genomes_dir = download_genomes(
-        Path(args.refseq_acc_file), 
-        Path(args.outdir),
+        args.refseq_acc_file, 
+        args.outdir,
         )
     run_antismash(
-        Path(genomes_dir), 
-        Path(args.outdir), 
+        genomes_dir, 
+        args.outdir, 
         args.threads,
-        Path(args.antismash_path),
+        args.antismash_path,
         )
 
 
 def only_download(mode):
     args = get_commands_download(_prog_name(mode))
-    command2log(Path(args.outdir))
+    command2log(args.outdir)
     download_genomes(
-        Path(args.refseq_acc_file), 
-        Path(args.outdir),
+        args.refseq_acc_file, 
+        args.outdir,
         )
     
     
 def only_antismash(mode):
     args = get_commands_antismash(_prog_name(mode))
-    command2log(Path(args.outdir))
+    command2log(args.outdir)
     run_antismash(
-        Path(args.indir), 
-        Path(args.outdir), 
+        args.indir, 
+        args.outdir, 
         args.threads,
-        Path(args.antismash_path),
+        args.antismash_path,
         )
 
 
 if __name__ == '__main__':
     
-    modes = ["complete", "download", "antismash"]
+    commands = ["complete", "download", "antismash"]
 
     # only the program name without additional arguments
     if len(sys.argv) < 2:
-        print_help(modes)
+        print_help(commands)
     # complete
-    elif sys.argv[1] == modes[0]:
+    elif sys.argv[1] == commands[0]:
         download_and_antismash(sys.argv[1])
     # download
-    elif sys.argv[1] == modes[1]:
+    elif sys.argv[1] == commands[1]:
         only_download(sys.argv[1])
     # antismash
-    elif sys.argv[1] == modes[2]:
+    elif sys.argv[1] == commands[2]:
         only_antismash(sys.argv[1])
     # None of the above: print help message
     else:
-        print_help(modes)
+        print_help(commands)
         
