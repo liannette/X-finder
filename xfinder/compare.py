@@ -633,8 +633,8 @@ def compare_genomes(seed_size, gap_threshold, size_threshold,
         conn.close()
         
         print_stdout(
-            f"Comparing {len(query_hostIDs)} query hosts and {len(ref_hostIDs)} "
-            "reference hosts, which amounts to  "
+            f"Comparing {len(query_hostIDs)} query genomes and "
+            f"{len(ref_hostIDs)} reference genomes, which amounts to "
             f"{len(query_hostIDs)*len(ref_hostIDs)} comparisions.", out_dir)
 
 
