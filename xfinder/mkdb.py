@@ -179,14 +179,9 @@ def add_database_indeces(conn):
 def make_database(database_path, out_dir):
     ''' Creates the database with tables and indeces '''
 
-    if os.path.isdir(out_dir):
-        # out_dir needs to be set to None, so that the error is not 
-        # printed to a log file
-        out_dir = None
-        raise RuntimeError("Output directory already exists, aborting for "
-                            "safety")
-    else:
-        os.mkdir(out_dir)    
+    if os.path.isfile(database_path):
+        raise RuntimeError("A database already exists in the output "
+                           "directory, aborting for safety")
 
     try:
         conn = sqlite3.connect(database_path)

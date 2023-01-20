@@ -6,10 +6,18 @@ python xfinder.py -h
 """
 
 import argparse
-import xfinder
+import sys
 import os
 from multiprocessing import cpu_count
 import glob
+from xfinder.common import print_stdout
+from xfinder.mkdb import make_database
+from xfinder.importgbk import import_genomes
+from xfinder.coregen import add_coregenome_info
+from xfinder.transp import add_transporter_info
+from xfinder.compare import compare_genomes
+from xfinder.cluster import cluster_hits
+from xfinder.results import export_results
 
 
 def get_commands():
@@ -106,6 +114,29 @@ def check_if_files_exist(out_dir, ref_genome_dirs, query_genome_dirs,
                            f"not exist: {transporter_pfams_path}")
     
 
+def run_all(database_path, ref_genome_dirs, query_genome_dirs, 
+            core_genome_path, transporter_pfams_path, seed_size, 
+            gap_threshold, size_threshold, DNA_length_threshold, max_l50,
+            threads, core_genome_cutoff, transporter_cutoff, out_dir):
+    # Create db
+    make_database(database_path, out_dir)
+    # Import genomes
+    import_genomes(database_path, "ref", ref_genome_dirs, out_dir)
+    import_genomes(database_path, "query", query_genome_dirs, out_dir)
+    # Add core genome and transporter pfam information
+    add_coregenome_info(database_path, core_genome_path, out_dir, threads)
+    add_transporter_info(database_path, transporter_pfams_path, out_dir)
+    # find hits
+    compare_genomes(seed_size, gap_threshold, size_threshold, 
+                    DNA_length_threshold, threads, max_l50, database_path, 
+                    out_dir)
+    # cluster hits
+    cluster_hits(threads, database_path, out_dir)
+    # print results
+    export_results(core_genome_cutoff, transporter_cutoff, database_path, 
+                    out_dir)
+
+
 if __name__ == "__main__":
     
     args = get_commands()
@@ -118,7 +149,10 @@ if __name__ == "__main__":
         args.transporter_pfams_path,
         )
     
-    xfinder.run_all(
+    os.mkdir(args.out_dir)
+    print_stdout(f"Command: {' '.join(sys.argv)}")
+    
+    run_all(
         database_path=os.path.join(args.out_dir, "database.db"), 
         ref_genome_dirs=args.ref_genome_dirs.split(","), 
         query_genome_dirs=args.query_genome_dirs.split(","), 
