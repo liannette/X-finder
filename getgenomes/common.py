@@ -17,9 +17,10 @@ def print_stdout_stderr(stdout, stderr, outdir):
     """ Prints stdout and stderr of a subprocess to log and stdout"""
     for msg in (stdout, stderr):
         if len(msg) > 0:
-            print_log(msg.decode(), outdir)
+            print_log(msg.decode().rstrip(), outdir)
             
             
 def create_dir(outdir):
     if os.path.isdir(outdir) is False:
         os.mkdir(outdir)
+        
