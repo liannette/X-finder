@@ -361,28 +361,25 @@ def _print_summary_header(database, core_genome_cutoff,
     Prints a header for the summary outfile. Specifies the database 
     name, the applied filters and labels.
     """
-    #"CDS product with neither + or - were only found in query sublists\n\n" \
     header = \
         "Database: {}\n" \
         "Max core genome fraction cutoff: {}\n" \
         "Transporter indicator cutoff: {}\n\n" \
-        "Max core genome fraction = for each sublist, the fraction of CDS that align\n" \
-        "                           to the core genome of Streptomyces is calculated.\n" \
-        "                           Streptomyces is calculated. The core genome\n" \
-        "                           indicator is the highest core genome fraction of\n" \
-        "                           all sublists in the cluster.\n" \
-        "Antismash fraction       = for each sublist, the fraction of pfams that are\n" \
+        "Max core genome fraction : for each sublist, the number of CDS aligning to\n" \
+        "                           the core genome (>90% identity) is calculated.\n" \
+        "                           The max core genome fraction is the highest\n" \
+        "                           core genome fraction of all sublists in the\n" \
+        "                           cluster.\n" \
+        "Antismash fraction       : for each sublist, the fraction of pfams that are\n" \
         "                           in the proto core region of an antismash result\n" \
-        "                           is calculated. For each cluster, both the maximum\n" \
-        "                           and the minimum antismash fraction is shown.\n" \
-        "Transporter indicator    = the fraction of core pfams that are associated\n" \
+        "                           is calculated. For each cluster, both the highest\n" \
+        "                           and the lowest antismash fraction is shown.\n" \
+        "Transporter indicator    : the fraction of core pfams that are associated\n" \
         "                           with transporter function. Core pfams are those\n" \
         "                           pfam numbers that are present in every sublist of\n" \
         "                           the cluster)\n\n" \
-        " + = CDS for this product does not align to the supplied core genome file\n" \
-        "     (<90% identity)\n" \
-        " - = CDS for this product aligns to the supplied core genome file\n" \
-        "     (>90% identity)\n" \
+        " + : CDS for this product does not align to the supplied core genome file\n" \
+        " - : CDS for this product aligns to the supplied core genome file\n" \
         "+- = at least one CDS for this product aligns to the supplied core genome\n" \
         "     file, but also at least one CDS for this product does not align\n" \
         " * = CDS product is not found in every sublists of the cluster".format(
@@ -430,12 +427,6 @@ def _print_cluster_to_summary_results(entry, outfile):
         print('   ', cds_product, file=outfile)
     print("", file=outfile)
 
-
-def _create_xlsx_writer(out_dir, filename):
-    filepath = os.path.join(out_dir, filename)
-    writer = pd.ExcelWriter(filepath, engine='xlsxwriter')
-    workbook  = writer.book
-    return writer, workbook
 
 
 def _get_results(cluster_list, database_path, core_genome_format, 
@@ -630,16 +621,16 @@ def _get_hosts(database_path):
             sql = """
                   WITH tbl AS
                       (SELECT DISTINCT({0}_hostID) as hostID
-                      FROM host_comparisons
-                      ORDER BY {0}_hostID)
+                      FROM host_comparisons)
                   SELECT tbl.hostID, host_type, organism, L50, 
                          file, seq_accession, description, seq_length
                   FROM tbl
                       INNER JOIN hosts ON tbl.hostID=hosts.hostID
                       INNER JOIN seq_records ON tbl.hostID=seq_records.hostID
+                  ORDER BY organism
                   """.format(host_type)
             rows = c.execute(sql).fetchall()
-            all_hosts.append(rows)
+            all_hosts += rows
             
     return all_hosts
         
@@ -656,19 +647,22 @@ def _write_hostgenomes_file(out_dir, all_hosts):
         'sequence length',
         ]
     all_hosts = pd.DataFrame(all_hosts, columns = cols)
-    writer = pd.ExcelWriter(os.path.join(out_dir, "genome_sequences.xlsx"), 
-                            engine='xlsxwriter')
-    all_hosts.to_excel(writer, sheet_name='Sheet1', index=False)
+    all_hosts.to_csv(os.path.join(out_dir, "genome_sequences.tsv"), 
+                     sep="\t", index=False)
     
 
 def write_result_files(cluster_list, database_path, core_genome_cutoff,
                        transporter_cutoff, out_dir):
     
-    writer = pd.ExcelWriter(os.path.join(out_dir, "results_detailed.xlsx"), 
-                            engine='xlsxwriter')
+    # Write a file with all the genomes/sequences used in the analysis 
+    all_hosts = _get_hosts(database_path)
+    _write_hostgenomes_file(out_dir, all_hosts)
+    
     
     # create different font formats for antismash/core genomes CDS in detailed
     # results 
+    writer = pd.ExcelWriter(os.path.join(out_dir, "results_detailed.xlsx"), 
+                            engine='xlsxwriter')
     workbook  = writer.book
     core_genome_format = workbook.add_format({'underline': True})
     antismash_format = workbook.add_format({'bold': True})
@@ -692,9 +686,6 @@ def write_result_files(cluster_list, database_path, core_genome_cutoff,
         transporter_cutoff,
         out_dir
         )
-    
-    all_hosts = _get_hosts()
-    _write_hostgenomes_file(out_dir, all_hosts)
     
     
 def export_results(core_genome_cutoff, transporter_cutoff, database_path, 
