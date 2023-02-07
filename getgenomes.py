@@ -113,6 +113,7 @@ def command2log(outdir):
     create_dir(outdir)
     print_log(f"Command: {' '.join(sys.argv)}")
 
+
 def download_and_antismash(mode):
     args = get_commands_complete(_prog_name(mode))
     command2log(args.outdir)
