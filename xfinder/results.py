@@ -7,7 +7,7 @@ import traceback
 import sys
 
 
-# sort by 1. number of sublists in cluster, 2. sequence/contig 3. pos of sublist in sequence/contig
+# 2. sequence/contig 3. pos of sublist in sequence/contig
 
 class Sublist:
     
@@ -74,7 +74,7 @@ def _get_sublists(conn, clusterID):
                    h.organism,
                    s.seq_accession, 
                    s.description,
-                   MIN(p.pfam_start),
+                   MIN(p.pfam_start) AS start_pos,
                    MAX(p.pfam_end)
               FROM sublists
                    INNER JOIN pfams AS p
@@ -85,7 +85,7 @@ def _get_sublists(conn, clusterID):
                        ON s.hostID = h.hostID
              WHERE clusterID = ?
           GROUP BY sublistID
-		  ORDER BY h.host_type
+		  ORDER BY h.host_type, organism, s.seq_accession, start_pos
             """
         rows = c.execute(sql, (clusterID,)).fetchall()
     sublists = [Sublist._from_row(row) for row in rows]
@@ -165,7 +165,7 @@ def _get_cds(sublist, conn):
 
 def _add_core_cds_products(sublists):
     # core cds products are present in all sublists
-    cds_products = list() # [cds.product for sublist in sublists for cds in sublist.all_cds]
+    cds_products = list()
     for sublist in sublists:
         cds_products.append([cds.product for cds in sublist.all_cds])
     core_cds_products = set(cds_products[0]).intersection(*cds_products)
@@ -358,7 +358,8 @@ def _print_msg_box(msg, outfile, indent=1, width=None, title=None):
 def _print_summary_header(database, core_genome_cutoff, 
                           transporter_cutoff, outfile):
     """
-    Prints a header for the summary outfile. Specifies the database name, the applied filters and labels.
+    Prints a header for the summary outfile. Specifies the database 
+    name, the applied filters and labels.
     """
     #"CDS product with neither + or - were only found in query sublists\n\n" \
     header = \
@@ -430,9 +431,9 @@ def _print_cluster_to_summary_results(entry, outfile):
     print("", file=outfile)
 
 
-def _create_xlsx_writer(out_dir):
-    detailed_results_path = os.path.join(out_dir, "results_detailed.xlsx")
-    writer = pd.ExcelWriter(detailed_results_path, engine='xlsxwriter')
+def _create_xlsx_writer(out_dir, filename):
+    filepath = os.path.join(out_dir, filename)
+    writer = pd.ExcelWriter(filepath, engine='xlsxwriter')
     workbook  = writer.book
     return writer, workbook
 
@@ -618,11 +619,57 @@ def _write_summary_file(summary_results, database_path, core_genome_cutoff,
             _print_cluster_to_summary_results(entry, outfile_summary)
 
 
+def _get_hosts(database_path):
+    
+    all_hosts = list()
+    
+    conn = sqlite3.connect(database_path)
+    with contextlib.closing(conn.cursor()) as c:
+        
+        for host_type in ("query", "ref"):
+            sql = """
+                  WITH tbl AS
+                      (SELECT DISTINCT({0}_hostID) as hostID
+                      FROM host_comparisons
+                      ORDER BY {0}_hostID)
+                  SELECT tbl.hostID, host_type, organism, L50, 
+                         file, seq_accession, description, seq_length
+                  FROM tbl
+                      INNER JOIN hosts ON tbl.hostID=hosts.hostID
+                      INNER JOIN seq_records ON tbl.hostID=seq_records.hostID
+                  """.format(host_type)
+            rows = c.execute(sql).fetchall()
+            all_hosts.append(rows)
+            
+    return all_hosts
+        
+
+def _write_hostgenomes_file(out_dir, all_hosts):
+    cols = [
+        'hostID', 
+        'host type',
+        'organism', 
+        'L50', 
+        'file', 
+        'sequence accession',
+        'sequence description',
+        'sequence length',
+        ]
+    all_hosts = pd.DataFrame(all_hosts, columns = cols)
+    writer = pd.ExcelWriter(os.path.join(out_dir, "genome_sequences.xlsx"), 
+                            engine='xlsxwriter')
+    all_hosts.to_excel(writer, sheet_name='Sheet1', index=False)
+    
+
 def write_result_files(cluster_list, database_path, core_genome_cutoff,
                        transporter_cutoff, out_dir):
     
-    # Need to create the workbook and formats for generating the results
-    writer, workbook = _create_xlsx_writer(out_dir)
+    writer = pd.ExcelWriter(os.path.join(out_dir, "results_detailed.xlsx"), 
+                            engine='xlsxwriter')
+    
+    # create different font formats for antismash/core genomes CDS in detailed
+    # results 
+    workbook  = writer.book
     core_genome_format = workbook.add_format({'underline': True})
     antismash_format = workbook.add_format({'bold': True})
     
@@ -646,6 +693,9 @@ def write_result_files(cluster_list, database_path, core_genome_cutoff,
         out_dir
         )
     
+    all_hosts = _get_hosts()
+    _write_hostgenomes_file(out_dir, all_hosts)
+    
     
 def export_results(core_genome_cutoff, transporter_cutoff, database_path, 
                 out_dir):
@@ -655,11 +705,9 @@ def export_results(core_genome_cutoff, transporter_cutoff, database_path,
             transporter_cutoff, 
             database_path
             )
-        
-        print_stdout(f"Printing results. {len(cluster_list)} cluster fullfill the "
-                    f"cutoff criteria (core genome: {core_genome_cutoff}, "
+        print_stdout(f"Printing results. {len(cluster_list)} cluster fullfill "
+                    f"the cutoff criteria (core genome: {core_genome_cutoff}, "
                     f"transporter: {transporter_cutoff})", out_dir)
-                    
         write_result_files(
             cluster_list, 
             database_path, 
@@ -667,6 +715,8 @@ def export_results(core_genome_cutoff, transporter_cutoff, database_path,
             transporter_cutoff, 
             out_dir
             )
+        print_stdout("Printed the result files.", out_dir)
     except:
         print_stderr(traceback.format_exc(), out_dir)
         sys.exit(1)
+        

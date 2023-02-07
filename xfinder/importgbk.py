@@ -300,20 +300,10 @@ def print_import_progress(finished_files, total_files):
     when the number of finished files equals the total number of files.
     Otherwise returns False.
     """
-    if finished_files % 20 == 0 or finished_files == total_files:
+    if finished_files % 50 == 0 or finished_files == total_files:
         return True
     else:
         return False
-
-
-def not_imported_to_file(not_imported_files, outfile_path):
-    """
-    Writes the names of the files that were not imported into the
-    database because of an exception to a file
-    """
-    with open(outfile_path, "w") as outfile:
-        for gbk_filename in not_imported_files:
-            print(gbk_filename, file=outfile)
 
 
 def import_genomes(database_path, host_type, genome_dirs, out_dir):
@@ -322,22 +312,17 @@ def import_genomes(database_path, host_type, genome_dirs, out_dir):
         print_stdout(f"Importing {len(gbk_files)} genbank files ({host_type}) "
                     "into the database.", out_dir)
         
-        not_imported_files = list()
         conn = sqlite3.connect(database_path)
         for i in range(len(gbk_files)):
             success = gbk_file_to_db(conn, gbk_files[i], host_type)
             if success is False:
                 print_stdout("File was not imported into the database: "
                             f"{gbk_files[i]}", out_dir)
-                not_imported_files.append(gbk_files[i])
             if print_import_progress(i+1, len(gbk_files)):
                 print_stdout("{}/{} files done".format(i+1, len(gbk_files)), 
                             out_dir)
         conn.close()
 
-        not_imported_to_file(
-            not_imported_files, 
-            outfile_path=os.path.join(out_dir, "not_imported_gbk_files.txt"))
     except:
         print_stderr(traceback.format_exc(), out_dir)
         sys.exit(1)
