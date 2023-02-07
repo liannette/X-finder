@@ -658,8 +658,8 @@ def compare_genomes(seed_size, gap_threshold, size_threshold,
         # Calculate how many new comparions were made 
         comparison_count_new = count_comparisons(database_path) \
                             - num_comparisons_start
-        print_stdout(f"{comparison_count_new} new comparisons have been added to "
-                    "the database.", out_dir)
+        print_stdout(f"{comparison_count_new} new comparisons have been added "
+                    "to the database.", out_dir)
     except:
         print_stderr(traceback.format_exc(), out_dir)
         sys.exit(1)

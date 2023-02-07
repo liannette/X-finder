@@ -59,7 +59,7 @@ def _get_transporter_pfams_from_pfam2go():
     #        print(pfam, file=outfile)
 
 
-def get_transporter_pfams(file_path=None):
+def get_transporter_pfams(out_dir, file_path=None):
     """ 
     Get all pfams associated with transporter activity 
     """
@@ -67,7 +67,7 @@ def get_transporter_pfams(file_path=None):
         transporter_pfams = _get_transporter_pfams_from_pfam2go()
     elif os.path.exists(file_path) is False:
         print_stdout("File with transporter pfams does not exist. "
-                     "Transporter pfams will be collected.")
+                     "Transporter pfams will be collected.", out_dir)
         transporter_pfams = _get_transporter_pfams_from_pfam2go()
     else:
         with open(file_path, "r") as infile:
@@ -92,10 +92,13 @@ def add_transporter_pfam_information(transporter_pfams, database_path):
 
 def add_transporter_info(database_path, transporter_pfams_path, out_dir):
     try:
-        print_stdout("Adding transporter PFAM information. Transporter pfam file: "
-                    f"{transporter_pfams_path}", out_dir)
-        transporter_pfams = get_transporter_pfams(transporter_pfams_path)
+        print_stdout("Adding transporter PFAM information into the database. "
+                     f"Transporter pfam file: {transporter_pfams_path}", 
+                     out_dir)
+        transporter_pfams = get_transporter_pfams(out_dir, 
+                                                  transporter_pfams_path)
         add_transporter_pfam_information(transporter_pfams, database_path)
+        print_stdout("Inserted transporter PFAM information.", out_dir)       
     except:
         print_stderr(traceback.format_exc(), out_dir)
         sys.exit(1)

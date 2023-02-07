@@ -249,8 +249,9 @@ def cluster_hits(threads, database_path, out_dir):
     try:
         print_stdout("Grouping similar hits into clusters", out_dir)
         clustered_sublists = cluster_sublists(threads, database_path)
-        print_stdout(f"{len(clustered_sublists)} cluster found in total", out_dir)
         add_cluster_to_db(clustered_sublists, database_path)
+        print_stdout(f"Hits were successfully grouped into "
+                     f"{len(clustered_sublists)} clusters.", out_dir)
     except:
         print_stderr(traceback.format_exc(), out_dir)
         sys.exit(1)

@@ -150,7 +150,7 @@ if __name__ == "__main__":
         )
     
     os.mkdir(args.out_dir)
-    print_stdout(f"Command: {' '.join(sys.argv)}")
+    print_stdout(f"Command: {' '.join(sys.argv)}", args.out_dir)
     
     run_all(
         database_path=os.path.join(args.out_dir, "database.db"), 
@@ -169,5 +169,6 @@ if __name__ == "__main__":
         out_dir=args.out_dir, 
         )
     
+    print_stdout("X-finder analysis finished.", args.out_dir)
     
     
