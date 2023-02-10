@@ -11,8 +11,7 @@ E-mail: a.lien@posteo.de
 
 ## Dependencies
 
-X-finder is build in python3.8. We recommend installing X-finder in a conda 
-environment like so:
+X-finder is build in python3.8. We recommend installing X-finder in a conda environment like so:
 
 ```
 # navigate to where you want to download the xfinder repo
@@ -37,9 +36,27 @@ with conda in your xfinder environment:
 conda install -c bioconda diamond=2.0.14
 ```
 
+
+If there are problems using the above descriped installation method, one can try the following instead:
+```
+# navigate to where you want to download the xfinder repo
+git clone https://github.com/liannette/X-finder.git
+
+# navigate into the repo
+cd X-finder
+
+# create new conda environment and install requirements in one go
+conda env create -f conda_env.yml
+
+# activate new environment
+conda activate xfinder
+
+# install X-finder
+pip install .
+```
+
 X-finder comes with an additional script to directly download 
-genomes and run antiSMASH on them. This is the preferred way to generate
-input genomes for X-finder. We recommend using antiSMASH version 6.1.1. More information on how to install antiSMASH: https://docs.antismash.secondarymetabolites.org/install/ 
+genomes and run antiSMASH on them. This is the preferred way to generate input genomes for X-finder. We recommend using antiSMASH version 6.1.1. More information on how to install antiSMASH: https://docs.antismash.secondarymetabolites.org/install/ 
 
 
 
@@ -169,7 +186,7 @@ python3 getgenomes.py download \
 python3 getgenomes.py antismash \
     --output_dir ../genomes \
     --input_dir ../genomes/ncbi-download/all \
-    --threads 8 
+    --threads 8 \
     --antismash_path /opt/antismash/6.1.1/antismash
 
 # Download genomes and run antiSMASH in one step
